@@ -32,8 +32,14 @@ from src.server.schemas import PredictRequestDTO, PredictResponseDTO
 CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
     (
         "gambling_scam",
-        ("nổ hũ", "casino", "cá độ", "tài xỉu", "cá cược", "sòng bài", "nhà cái", "rút tiền về ví", "tặng 88k", "cờ bạc", "lô đề", "xóc đĩa"),
-        "Quảng cáo cờ bạc, cá độ hoặc trò chơi đổi thưởng trái phép",
+        (
+            "nổ hũ", "casino", "cá độ", "tài xỉu", "cá cược", "cược ngay", "sòng bài",
+            "nhà cái", "top nhà cái", "kèo nhà cái", "tỷ lệ kèo", "soi kèo", "rút tiền về ví",
+            "tặng 88k", "cờ bạc", "lô đề", "xóc đĩa", "8xbet", "fb88", "w88", "m88", "kubet",
+            "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "go88", "sunwin", "rikvip",
+            "188bet", "fun88", "bk8",
+        ),
+        "Quảng cáo cờ bạc, cá độ hoặc nhà cái trái phép",
     ),
     (
         "financial_scam",
@@ -202,16 +208,18 @@ class HarmfulAdInferenceService:
         hint_lower = img_hint.lower()
         visual_harm_hits = sum(
             1
-            for cue in ("#dc2626", "#ef4444", "casino", "scam", "hate", "thuoc_gia", "vay_nong")
+            for cue in (
+                "#dc2626", "#ef4444", "casino", "scam", "hate", "thuoc_gia", "vay_nong",
+                "nha_cai", "nha-cai", "nhacai", "8xbet", "fb88", "w88", "m88", "kubet",
+                "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88", "188bet", "bk8",
+            )
             if cue in hint_lower
         )
 
         if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):
             harmful_prob = max(raw_prob, min(0.98, 0.80 + 0.04 * (primary_hits + hype_hits)))
-        elif primary_hits == 1:
-            harmful_prob = max(raw_prob, 0.72)
-        elif visual_harm_hits >= 2:
-            harmful_prob = max(raw_prob, 0.68)
+        elif primary_hits == 1 or visual_harm_hits >= 1:
+            harmful_prob = max(raw_prob, 0.78)
         else:
             harmful_prob = min(raw_prob, 0.16)
 

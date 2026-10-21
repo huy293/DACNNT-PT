@@ -26,13 +26,18 @@ DEFAULT_FEATURES_CSV = PROJECT_ROOT / "src" / "mocks" / "features.csv"
 
 # High-signal Vietnamese & English harmful advertisement / hate-speech lexicon groups (Primary Harmful Signals)
 HARMFUL_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
-    ("nổ hũ", "casino", "cá độ", "tài xỉu", "cá cược", "sòng bài", "nhà cái", "rút tiền về ví", "tặng 88k", "nạp đầu"),
+    (
+        "nổ hũ", "casino", "cá độ", "tài xỉu", "cá cược", "cược ngay", "sòng bài",
+        "nhà cái", "top nhà cái", "kèo nhà cái", "tỷ lệ kèo", "soi kèo", "rút tiền về ví",
+        "tặng 88k", "nạp đầu", "8xbet", "fb88", "w88", "m88", "kubet", "hi88", "jun88",
+        "new88", "789bet", "f8bet", "shbet", "go88", "sunwin", "rikvip", "188bet", "fun88", "bk8",
+    ),
     ("vay nóng", "không thế chấp", "không thẩm định", "giải ngân", "bao nợ xấu", "lãi suất 0%", "x100 tài khoản", "tiền ảo x100"),
     ("thần dược", "chữa khỏi dứt điểm", "trị dứt điểm", "chữa ung thư", "bệnh viện giấu kín", "giảm cân cấp tốc", "cam kết hoàn tiền 200%"),
     ("mật khẩu ngân hàng", "mã otp", "nhập otp", "cung cấp mật khẩu", "việc nhẹ lương cao", "chốt đơn ảo", "nạp cọc"),
     ("đuổi cổ", "đồ vô dụng", "loại bỏ khỏi xã hội", "bẩn thỉu", "tiêu diệt", "tẩy chay bọn", "đáng bị loại bỏ"),
     ("inferior group", "disgusting", "extremist", "destroy our", "hate speech", "miracle cure", "illegal betting"),
-    ("cờ bạc", "lô đề", "xóc đĩa", "bắn cá đổi thưởng", "vay tiền nhanh CMND", "tín dụng đen"),
+    ("cờ bạc", "lô đề", "xóc đĩa", "bắn cá đổi thưởng", "vay tiền nhanh cmnd", "tín dụng đen"),
     ("lừa đảo chiếm đoạt", "hack tài khoản", "bịp bợm", "thuốc gia truyền 3 đời", "trúng thưởng iphone"),
 )
 
@@ -74,8 +79,9 @@ def extract_visual_embedding_32d(
 
     # Infer visual cues from filename/URL/SVG Data-URI when raw metadata is not explicitly provided
     harmful_visual_cues = (
-        "casino", "scam", "hate", "meme_harm", "nha_cai", "thuoc_gia", "vay_nong",
-        "gambling", "danger_banner", "#dc2626", "#ef4444", "#ff0000",
+        "casino", "scam", "hate", "meme_harm", "nha_cai", "nha-cai", "nhacai",
+        "thuoc_gia", "vay_nong", "gambling", "danger_banner", "#dc2626", "#ef4444", "#ff0000",
+        "8xbet", "fb88", "w88", "m88", "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88", "188bet", "bk8",
     )
     safe_visual_cues = (
         "khoa_hoc", "ca_phe", "giay", "laptop", "du_lich", "sach",

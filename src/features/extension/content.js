@@ -54,24 +54,69 @@
   }
 
   function findClosestMediaTextContainer(imgEl) {
-    const knownCard = imgEl.closest(
-      "[data-ad-card], .ad-card, .sponsored-post, article, .feed-card, .item-news, .box-category-item, .MjjYud, .g, .isv-r"
+    const explicitCard = imgEl.closest(
+      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card']"
     );
-    if (knownCard) {
-      return knownCard;
+    if (explicitCard) {
+      return explicitCard;
     }
-    const anchorBanner = imgEl.closest("a[href]");
-    if (anchorBanner && isBannerLikeImage(imgEl)) {
-      return anchorBanner;
+
+    const feedCard = imgEl.closest(
+      "article, .feed-card, .item-news, .box-category-item, .MjjYud, .g, .isv-r"
+    );
+    // Only use feedCard if it represents a single-image card (not a long multi-image article)
+    if (feedCard && feedCard.querySelectorAll("img").length <= 1 && (feedCard.clientHeight || 0) <= 800) {
+      return feedCard;
     }
+
+    const figureOrAnchor = imgEl.closest("figure, a[href]");
+    if (figureOrAnchor && figureOrAnchor.querySelectorAll("img").length <= 2) {
+      return figureOrAnchor;
+    }
+
     let current = imgEl.parentElement;
-    for (let depth = 0; depth < 4 && current && current !== document.body; depth += 1) {
-      if (current.querySelector("p, span, h3, a")) {
+    for (let depth = 0; depth < 3 && current && current !== document.body; depth += 1) {
+      const imgCount = current.querySelectorAll("img").length;
+      if (imgCount > 1) {
+        break;
+      }
+      if (current.querySelector("p, span, h2, h3, h4, figcaption, a")) {
         return current;
       }
       current = current.parentElement;
     }
-    return imgEl.parentElement;
+    return imgEl.parentElement || imgEl;
+  }
+
+  function extractAdjacentSiblingText(node) {
+    const parts = [];
+    let anchor = node;
+    if (anchor && anchor.parentElement && anchor.parentElement.querySelectorAll("img").length === 1) {
+      if (["P", "FIGURE", "A", "DIV"].includes(anchor.parentElement.tagName)) {
+        anchor = anchor.parentElement;
+      }
+    }
+    if (!anchor) {
+      return parts;
+    }
+    let prev = anchor.previousElementSibling;
+    for (let step = 0; step < 3 && prev; step += 1) {
+      if (!prev.querySelector("img")) {
+        const txt = (prev.innerText || prev.textContent || "").trim();
+        if (txt && txt.length >= 4) {
+          parts.unshift(txt.slice(0, 260));
+        }
+      }
+      prev = prev.previousElementSibling;
+    }
+    const next = anchor.nextElementSibling;
+    if (next && !next.querySelector("img")) {
+      const txt = (next.innerText || next.textContent || "").trim();
+      if (txt && txt.length >= 4) {
+        parts.push(txt.slice(0, 220));
+      }
+    }
+    return parts;
   }
 
   function findAdCandidates(root = document) {
@@ -108,15 +153,20 @@
       }
     });
 
-    // General heuristic: <img> accompanied by text OR pure-image/GIF ad banners (like 8Xbet banners)
+    // General heuristic: scan every content/banner <img> (including multiple images inside long articles)
     root.querySelectorAll("img").forEach((imgEl) => {
+      if (imgEl.getAttribute("data-adshield-scanned") === "true") {
+        return;
+      }
       const container = findClosestMediaTextContainer(imgEl);
       if (!container || container.getAttribute("data-adshield-scanned") === "true") {
         return;
       }
-      const hasTextCompanion = Boolean(container.querySelector("p, span, h3, a, button"));
-      const width = imgEl.naturalWidth || imgEl.width || container.clientWidth || 0;
-      if ((hasTextCompanion && width >= 60) || isBannerLikeImage(imgEl)) {
+      const width = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || container.clientWidth || 0;
+      const hasLocalOrSiblingText =
+        Boolean(container.querySelector("p, span, h2, h3, h4, figcaption, a, button")) ||
+        extractAdjacentSiblingText(imgEl).length > 0;
+      if ((hasLocalOrSiblingText && width >= 60) || isBannerLikeImage(imgEl)) {
         candidates.add(container);
       }
     });
@@ -139,11 +189,11 @@
         : adContainer.querySelector("a[href]") || adContainer.closest("a[href]");
     const linkHref = anchorEl ? anchorEl.getAttribute("href") || anchorEl.href || "" : "";
 
-    const textNodes = adContainer.querySelectorAll("p, span, h3, h4, a, button, [data-ad-text]");
+    const textNodes = adContainer.querySelectorAll("p, span, h2, h3, h4, figcaption, a, button, [data-ad-text]");
     const collectedParts = [];
 
     const selfText = (adContainer.innerText || adContainer.textContent || "").trim();
-    if (selfText && selfText.length >= 4 && selfText.length <= 120) {
+    if (selfText && selfText.length >= 4 && selfText.length <= 160) {
       collectedParts.push(selfText);
     }
 
@@ -164,6 +214,17 @@
       }
     }
 
+    // If the image sits inside a multi-paragraph article (e.g. "NHÀ CÁI BK8..." heading + <p> above/below),
+    // include the adjacent sibling paragraphs/headings so the multimodal classifier sees its caption/context.
+    if (collectedParts.join(" ").length < 40) {
+      const siblingTexts = extractAdjacentSiblingText(imgElement || adContainer);
+      siblingTexts.forEach((st) => {
+        if (!collectedParts.includes(st)) {
+          collectedParts.push(st);
+        }
+      });
+    }
+
     // If this is a pure-image banner (e.g., 8Xbet GIF/WebP banner with text baked into the image),
     // include link destination and page-level gambling banner context for multimodal inference.
     if (imgElement && isBannerLikeImage(imgElement)) {
@@ -179,14 +240,14 @@
       collectedParts.push(linkHref);
     }
 
-    const combinedHint = [rawImgUrl, linkHref, adContainer.className || "", adContainer.id || ""]
+    const combinedHint = [rawImgUrl, linkHref, String(adContainer.className || ""), adContainer.id || ""]
       .filter(Boolean)
       .join(" ");
 
     return {
       ad_id: adContainer.getAttribute("data-ad-id") || `dom_ad_${index}`,
       image_url: rawImgUrl || combinedHint,
-      text: collectedParts.join(" — ").slice(0, 600),
+      text: collectedParts.join(" — ").slice(0, 650),
       imgElement,
     };
   }
@@ -195,21 +256,32 @@
    * Apply `element.style.filter = "blur(10px)"` and inject the interactive warning button.
    */
   function applyHarmfulAdProtection(adContainer, imgElement, prediction) {
-    if (window.getComputedStyle && window.getComputedStyle(adContainer).display === "inline") {
-      adContainer.style.display = "inline-block";
+    let hostContainer = adContainer;
+    if (hostContainer.tagName === "IMG" && hostContainer.parentElement) {
+      const imgWrapper = document.createElement("div");
+      hostContainer.parentElement.insertBefore(imgWrapper, hostContainer);
+      imgWrapper.appendChild(hostContainer);
+      hostContainer = imgWrapper;
     }
-    adContainer.classList.add("adshield-card-wrapper");
-    adContainer.setAttribute("data-adshield-verdict", "harmful");
+
+    if (window.getComputedStyle && window.getComputedStyle(hostContainer).display === "inline") {
+      hostContainer.style.display = "inline-block";
+    }
+    hostContainer.classList.add("adshield-card-wrapper");
+    hostContainer.setAttribute("data-adshield-verdict", "harmful");
+    if (imgElement) {
+      imgElement.setAttribute("data-adshield-scanned", "true");
+    }
 
     let targetToBlur =
-      adContainer.querySelector("[data-ad-media-body]") || imgElement;
+      hostContainer.querySelector("[data-ad-media-body]") || imgElement;
     if (!targetToBlur) {
       const innerWrap = document.createElement("div");
       innerWrap.setAttribute("data-ad-media-body", "true");
-      while (adContainer.firstChild) {
-        innerWrap.appendChild(adContainer.firstChild);
+      while (hostContainer.firstChild) {
+        innerWrap.appendChild(hostContainer.firstChild);
       }
-      adContainer.appendChild(innerWrap);
+      hostContainer.appendChild(innerWrap);
       targetToBlur = innerWrap;
     }
 
@@ -220,7 +292,7 @@
       imgElement.style.filter = "blur(10px)";
     }
 
-    const existingOverlay = adContainer.querySelector(".adshield-warning-overlay");
+    const existingOverlay = hostContainer.querySelector(".adshield-warning-overlay");
     if (existingOverlay) {
       existingOverlay.remove();
     }
@@ -232,7 +304,7 @@
         : "Mô hình CLIP + Classifier phát hiện dấu hiệu quảng cáo gây hại.";
 
     const containerHeight =
-      adContainer.clientHeight || (imgElement ? imgElement.clientHeight || imgElement.height : 0) || 0;
+      hostContainer.clientHeight || (imgElement ? imgElement.clientHeight || imgElement.height : 0) || 0;
     const isCompactBanner = containerHeight > 0 && containerHeight < 135;
 
     const overlay = document.createElement("div");
@@ -285,18 +357,12 @@
     overlay.appendChild(badge);
     overlay.appendChild(reasonPara);
     overlay.appendChild(toggleButton);
-    adContainer.appendChild(overlay);
+    hostContainer.appendChild(overlay);
   }
 
-  /**
-   * Mark a safe ad: only show the green badge on explicit `[data-ad-card]` demo cards
-   * so normal website elements/buttons are not cluttered with "An toàn (84%)" pills.
-   */
   function markSafeAd(adContainer, prediction) {
     adContainer.setAttribute("data-adshield-verdict", "safe");
-    if (!adContainer.hasAttribute("data-ad-card")) {
-      return;
-    }
+    if (!adContainer.hasAttribute("data-ad-card")) return;
     adContainer.classList.add("adshield-card-wrapper");
     if (!adContainer.querySelector(".adshield-safe-pill")) {
       const pill = document.createElement("span");
@@ -308,9 +374,6 @@
     }
   }
 
-  /**
-   * Send ad payload to Backend API via Background Service Worker (or direct fetch fallback).
-   */
   async function requestPrediction(payload, customApiUrl) {
     if (
       typeof chrome !== "undefined" &&
@@ -322,15 +385,8 @@
       return new Promise((resolve) => {
         try {
           chrome.runtime.sendMessage({ type: "ADSHIELD_PREDICT", payload }, (response) => {
-            if (chrome.runtime && chrome.runtime.lastError) {
-              resolve(null);
-              return;
-            }
-            if (response && response.ok && response.data) {
-              resolve(response.data);
-            } else {
-              resolve(null);
-            }
+            if (chrome.runtime && chrome.runtime.lastError) return resolve(null);
+            resolve(response && response.ok && response.data ? response.data : null);
           });
         } catch (_err) {
           resolve(null);
@@ -349,18 +405,12 @@
           image_url: payload.image_url,
         }),
       });
-      if (!res.ok) {
-        return null;
-      }
-      return await res.json();
+      return res.ok ? await res.json() : null;
     } catch (_err) {
       return null;
     }
   }
 
-  /**
-   * Scan all unscanned ads on the current page and apply protection.
-   */
   async function scanPageAds(options = {}) {
     if (options.forceRescan) {
       document.querySelectorAll("[data-adshield-scanned]").forEach((el) => {
@@ -373,13 +423,9 @@
 
     for (let i = 0; i < candidates.length; i += 1) {
       const adContainer = candidates[i];
-      if (!adContainer || !adContainer.isConnected) {
-        continue;
-      }
+      if (!adContainer || !adContainer.isConnected) continue;
       const adData = extractMultimodalAdData(adContainer, i + 1);
-      if (!adData.text && !adData.image_url) {
-        continue;
-      }
+      if (!adData.text && !adData.image_url) continue;
 
       adContainer.setAttribute("data-adshield-scanned", "true");
       const prediction = await requestPrediction(adData, options.apiUrl);
@@ -401,44 +447,38 @@
     return summary;
   }
 
-  // Expose helper on window for Demo Portal & automated E2E testing
   window.AdShieldContentScanner = {
     scanPageAds,
     applyHarmfulAdProtection,
     WARNING_BUTTON_TEXT,
   };
 
-  // Listen for manual re-scan command from Extension Popup
   if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg && msg.type === "ADSHIELD_SCAN_NOW") {
-        scanPageAds({ forceRescan: true }).then((summary) => {
-          sendResponse({ ok: true, summary });
-        });
+        scanPageAds({ forceRescan: true }).then((summary) => sendResponse({ ok: true, summary }));
         return true;
       }
       return false;
     });
   }
 
-  // Initial scan on page load + debounced MutationObserver for infinite scroll feeds
   scanPageAds();
 
   let debounceTimer = null;
-  const observer = new MutationObserver(() => {
+  function scheduleScan() {
     if (typeof chrome !== "undefined" && (!chrome.runtime || !chrome.runtime.id)) {
       observer.disconnect();
       return;
     }
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-    debounceTimer = setTimeout(() => {
-      scanPageAds();
-    }, 600);
-  });
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => scanPageAds(), 400);
+  }
 
+  const observer = new MutationObserver(scheduleScan);
   if (document.body) {
     observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("scroll", scheduleScan, { passive: true });
+    document.addEventListener("load", scheduleScan, true);
   }
 })();

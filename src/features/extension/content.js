@@ -66,15 +66,14 @@
     const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
     const src = (imgEl.currentSrc || imgEl.src || "").toLowerCase();
     const aspect = h > 0 ? w / h : 1;
-    const inAnchor = Boolean(imgEl.closest("a[href]"));
     const inBannerBox = Boolean(
       imgEl.closest('[class*="banner"], [class*="ads"], [id*="ads"], [class*="qc"], [class*="sponsor"], [class*="bet"], [class*="nhacai"]')
     );
     const isGifBanner = src.includes(".gif") && w >= 40;
-    const isWideLeaderboard = w >= 220 && h >= 24 && aspect >= 2.2;
-    const isRectangularBookmakerBadge =
-      w >= 40 && h >= 12 && aspect >= 1.6 && (inAnchor || inBannerBox || detectPageGamblingSignals().length > 0);
-    return isGifBanner || isWideLeaderboard || isRectangularBookmakerBadge || (inAnchor && w >= 75 && h >= 18) || (inBannerBox && w >= 45);
+    const isWideLeaderboard = w >= 260 && h >= 24 && h <= 140 && aspect >= 2.8;
+    const isThinBookmakerBadge =
+      w >= 40 && w <= 150 && h >= 12 && h <= 42 && aspect >= 2.0 && detectPageGamblingSignals().length > 0;
+    return isGifBanner || isWideLeaderboard || isThinBookmakerBadge || (inBannerBox && w >= 45);
   }
 
   function findClosestMediaTextContainer(imgEl) {
@@ -83,8 +82,9 @@
 
     const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || 0;
     const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
-    // For compact badges/buttons (like "CƯỢC 8XBET" or "8Xbet" odds logo), target only the tight badge/button
-    if ((w > 0 && w < 180) || (h > 0 && h < 50)) {
+    const aspect = h > 0 ? w / h : 1;
+    // Only isolate thin horizontal badges/buttons (h <= 42, aspect >= 2.0), never normal 160x100 article thumbnails
+    if (h > 0 && h <= 42 && aspect >= 2.0) {
       const tightAnchor = imgEl.closest("a[href], button");
       if (tightAnchor && tightAnchor.querySelectorAll("img").length === 1) return tightAnchor;
       return imgEl;
@@ -209,8 +209,10 @@
     }
 
     if (imgElement && isBannerLikeImage(imgElement)) {
+      const joinedText = collectedParts.join(" ").trim();
+      const hasBettingOddsNumbers = /\b0\.\d{2}\b/.test(joinedText) || /\b\d+(\.\d+)?\/\d+(\.\d+)?\b/.test(joinedText);
       const pageSignals = detectPageGamblingSignals();
-      if (pageSignals.length > 0 && !adContainer.querySelector("p")) {
+      if (pageSignals.length > 0 && (joinedText.length === 0 || hasBettingOddsNumbers)) {
         collectedParts.push(
           `Banner quảng cáo nhà cái cá cược trực tuyến (${pageSignals.slice(0, 4).join(", ")})`
         );

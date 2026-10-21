@@ -31,6 +31,7 @@ HARMFUL_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
         "nhà cái", "top nhà cái", "kèo nhà cái", "tỷ lệ kèo", "soi kèo", "rút tiền về ví",
         "tặng 88k", "nạp đầu", "8xbet", "fb88", "w88", "m88", "kubet", "hi88", "jun88",
         "new88", "789bet", "f8bet", "shbet", "go88", "sunwin", "rikvip", "188bet", "fun88", "bk8",
+        "ggbet", "deposit bonus", "betting sites",
     ),
     ("vay nóng", "không thế chấp", "không thẩm định", "giải ngân", "bao nợ xấu", "lãi suất 0%", "x100 tài khoản", "tiền ảo x100"),
     ("thần dược", "chữa khỏi dứt điểm", "trị dứt điểm", "chữa ung thư", "bệnh viện giấu kín", "giảm cân cấp tốc", "cam kết hoàn tiền 200%"),

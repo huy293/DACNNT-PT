@@ -53,7 +53,17 @@
     return GAMBLING_CONTEXT_TERMS.filter((term) => pageSample.includes(term));
   }
 
+  function isSiteHomepageLogo(imgEl) {
+    const anchor = imgEl.closest("a[href]");
+    const inHeader = Boolean(imgEl.closest("header, nav, .header, .navbar"));
+    if (!inHeader || !anchor) return false;
+    const href = (anchor.getAttribute("href") || "").trim();
+    const cls = ((imgEl.className || "") + " " + (anchor.className || "") + " " + (imgEl.alt || "")).toLowerCase();
+    return href === "/" || href === window.location.origin || href === window.location.origin + "/" || cls.includes("logo");
+  }
+
   function isBannerLikeImage(imgEl) {
+    if (isSiteHomepageLogo(imgEl)) return false;
     const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || 0;
     const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
     const src = (imgEl.currentSrc || imgEl.src || "").toLowerCase();
@@ -62,120 +72,97 @@
     const inBannerBox = Boolean(
       imgEl.closest('[class*="banner"], [class*="ads"], [id*="ads"], [class*="qc"], [class*="sponsor"], [class*="bet"], [class*="nhacai"]')
     );
-    const isGifBanner = src.includes(".gif") && w >= 120;
-    const isWideLeaderboard = w >= 240 && h >= 28 && aspect >= 2.4;
-    return isGifBanner || isWideLeaderboard || (inAnchor && w >= 130 && h >= 30) || (inBannerBox && w >= 100);
+    const isGifBanner = src.includes(".gif") && w >= 45;
+    const isWideLeaderboard = w >= 220 && h >= 24 && aspect >= 2.2;
+    const isRectangularBookmakerBadge =
+      w >= 45 && h >= 14 && aspect >= 1.7 && (inAnchor || inBannerBox || detectPageGamblingSignals().length > 0);
+    return isGifBanner || isWideLeaderboard || isRectangularBookmakerBadge || (inAnchor && w >= 75 && h >= 18) || (inBannerBox && w >= 50);
   }
 
   function findClosestMediaTextContainer(imgEl) {
-    const explicitCard = imgEl.closest(
-      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card']"
-    );
-    if (explicitCard) {
-      return explicitCard;
+    const explicitCard = imgEl.closest("[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card']");
+    if (explicitCard) return explicitCard;
+
+    const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || 0;
+    const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
+    // For compact badges/buttons (like "CƯỢC 8XBET" or "8Xbet" odds logo), target only the tight badge/button
+    if ((w > 0 && w < 180) || (h > 0 && h < 50)) {
+      const tightAnchor = imgEl.closest("a[href], button");
+      if (tightAnchor && tightAnchor.querySelectorAll("img").length === 1) return tightAnchor;
+      return imgEl;
     }
 
-    const feedCard = imgEl.closest(
-      "article, .feed-card, .item-news, .box-category-item, .MjjYud, .g, .isv-r"
-    );
-    // Only use feedCard if it represents a single-image card (not a long multi-image article)
+    const feedCard = imgEl.closest("article, .feed-card, .item-news, .box-category-item, .MjjYud, .g, .isv-r");
     if (feedCard && feedCard.querySelectorAll("img").length <= 1 && (feedCard.clientHeight || 0) <= 800) {
       return feedCard;
     }
 
     const figureOrAnchor = imgEl.closest("figure, a[href]");
-    if (figureOrAnchor && figureOrAnchor.querySelectorAll("img").length <= 2) {
+    if (figureOrAnchor && figureOrAnchor.querySelectorAll("img").length === 1) {
       return figureOrAnchor;
     }
 
     let current = imgEl.parentElement;
     for (let depth = 0; depth < 3 && current && current !== document.body; depth += 1) {
-      const imgCount = current.querySelectorAll("img").length;
-      if (imgCount > 1) {
-        break;
-      }
-      if (current.querySelector("p, span, h2, h3, h4, figcaption, a")) {
-        return current;
-      }
+      if (current.querySelectorAll("img").length > 1) break;
+      if (current.querySelector("p, span, h2, h3, h4, figcaption, a")) return current;
       current = current.parentElement;
     }
-    return imgEl.parentElement || imgEl;
+    return (imgEl.parentElement && imgEl.parentElement.querySelectorAll("img").length === 1)
+      ? imgEl.parentElement
+      : imgEl;
   }
 
   function extractAdjacentSiblingText(node) {
     const parts = [];
     let anchor = node;
     if (anchor && anchor.parentElement && anchor.parentElement.querySelectorAll("img").length === 1) {
-      if (["P", "FIGURE", "A", "DIV"].includes(anchor.parentElement.tagName)) {
-        anchor = anchor.parentElement;
-      }
+      if (["P", "FIGURE", "A", "DIV"].includes(anchor.parentElement.tagName)) anchor = anchor.parentElement;
     }
-    if (!anchor) {
-      return parts;
-    }
+    if (!anchor) return parts;
     let prev = anchor.previousElementSibling;
     for (let step = 0; step < 3 && prev; step += 1) {
       if (!prev.querySelector("img")) {
         const txt = (prev.innerText || prev.textContent || "").trim();
-        if (txt && txt.length >= 4) {
-          parts.unshift(txt.slice(0, 260));
-        }
+        if (txt && txt.length >= 4) parts.unshift(txt.slice(0, 260));
       }
       prev = prev.previousElementSibling;
     }
     const next = anchor.nextElementSibling;
     if (next && !next.querySelector("img")) {
       const txt = (next.innerText || next.textContent || "").trim();
-      if (txt && txt.length >= 4) {
-        parts.push(txt.slice(0, 220));
-      }
+      if (txt && txt.length >= 4) parts.push(txt.slice(0, 220));
     }
     return parts;
   }
 
   function findAdCandidates(root = document) {
     const explicitSelectors = [
-      "[data-ad-card]",
-      ".ad-card",
-      ".sponsored-post",
-      '[data-testid*="ad-card"]',
-      '[aria-label*="Sponsored"]',
-      '[aria-label*="Được tài trợ"]',
+      "[data-ad-card]", ".ad-card", ".sponsored-post", '[data-testid*="ad-card"]',
+      '[aria-label*="Sponsored"]', '[aria-label*="Được tài trợ"]',
     ];
     const candidates = new Set();
 
     explicitSelectors.forEach((sel) => {
       root.querySelectorAll(sel).forEach((el) => {
-        if (el.getAttribute("data-adshield-scanned") !== "true") {
-          candidates.add(el);
-        }
+        if (el.getAttribute("data-adshield-scanned") !== "true") candidates.add(el);
       });
     });
 
-    // Also catch explicit gambling CTA buttons/links in headers (e.g. "TOP NHÀ CÁI", "CƯỢC NGAY")
-    root.querySelectorAll("a, button").forEach((btnEl) => {
-      if (btnEl.getAttribute("data-adshield-scanned") === "true") {
-        return;
-      }
+    const ctaKeywords =
+      "top nhà cái|cược|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
+    root.querySelectorAll("a, button, span").forEach((btnEl) => {
+      if (btnEl.getAttribute("data-adshield-scanned") === "true" || btnEl.querySelector("img")) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").trim().toLowerCase();
-      if (
-        txt.length >= 6 &&
-        txt.length <= 45 &&
-        ("top nhà cái|cược ngay|nhà cái uy tín|tặng 88k|nổ hũ".split("|").some((kw) => txt.includes(kw)))
-      ) {
+      if (txt.length >= 4 && txt.length <= 45 && ctaKeywords.some((kw) => txt.includes(kw))) {
         candidates.add(btnEl);
       }
     });
 
-    // General heuristic: scan every content/banner <img> (including multiple images inside long articles)
     root.querySelectorAll("img").forEach((imgEl) => {
-      if (imgEl.getAttribute("data-adshield-scanned") === "true") {
-        return;
-      }
+      if (imgEl.getAttribute("data-adshield-scanned") === "true") return;
       const container = findClosestMediaTextContainer(imgEl);
-      if (!container || container.getAttribute("data-adshield-scanned") === "true") {
-        return;
-      }
+      if (!container || container.getAttribute("data-adshield-scanned") === "true") return;
       const width = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || container.clientWidth || 0;
       const hasLocalOrSiblingText =
         Boolean(container.querySelector("p, span, h2, h3, h4, figcaption, a, button")) ||
@@ -188,9 +175,6 @@
     return Array.from(candidates);
   }
 
-  /**
-   * Extract multimodal pair `{ image_url, text, imgElement }` from an ad DOM container.
-   */
   function extractMultimodalAdData(adContainer, index) {
     const imgElement = adContainer.tagName === "IMG" ? adContainer : adContainer.querySelector("img");
     const rawImgUrl = imgElement
@@ -207,35 +191,22 @@
     const collectedParts = [];
 
     const selfText = (adContainer.innerText || adContainer.textContent || "").trim();
-    if (selfText && selfText.length >= 4 && selfText.length <= 160) {
-      collectedParts.push(selfText);
-    }
+    if (selfText && selfText.length >= 4 && selfText.length <= 160) collectedParts.push(selfText);
 
     textNodes.forEach((node) => {
-      if (node.closest(".adshield-warning-overlay")) {
-        return;
-      }
+      if (node.closest(".adshield-warning-overlay")) return;
       const txt = (node.innerText || node.textContent || "").trim();
-      if (txt && txt.length >= 3 && !collectedParts.includes(txt)) {
-        collectedParts.push(txt);
-      }
+      if (txt && txt.length >= 3 && !collectedParts.includes(txt)) collectedParts.push(txt);
     });
 
     if (imgElement) {
       const altAndTitle = [imgElement.alt, imgElement.title].filter(Boolean).join(" ").trim();
-      if (altAndTitle && !collectedParts.includes(altAndTitle)) {
-        collectedParts.push(altAndTitle);
-      }
+      if (altAndTitle && !collectedParts.includes(altAndTitle)) collectedParts.push(altAndTitle);
     }
 
-    // If the image sits inside a multi-paragraph article (e.g. "NHÀ CÁI BK8..." heading + <p> above/below),
-    // include the adjacent sibling paragraphs/headings so the multimodal classifier sees its caption/context.
     if (collectedParts.join(" ").length < 40) {
-      const siblingTexts = extractAdjacentSiblingText(imgElement || adContainer);
-      siblingTexts.forEach((st) => {
-        if (!collectedParts.includes(st)) {
-          collectedParts.push(st);
-        }
+      extractAdjacentSiblingText(imgElement || adContainer).forEach((st) => {
+        if (!collectedParts.includes(st)) collectedParts.push(st);
       });
     }
 
@@ -317,12 +288,17 @@
         ? prediction.reasons[0]
         : "Mô hình CLIP + Classifier phát hiện dấu hiệu quảng cáo gây hại.";
 
+    const containerWidth =
+      hostContainer.clientWidth || (imgElement ? imgElement.clientWidth || imgElement.width : 0) || 0;
     const containerHeight =
       hostContainer.clientHeight || (imgElement ? imgElement.clientHeight || imgElement.height : 0) || 0;
-    const isCompactBanner = containerHeight > 0 && containerHeight < 135;
+    const isMicroBadge = (containerWidth > 0 && containerWidth < 220) || (containerHeight > 0 && containerHeight < 48);
+    const isCompactBanner = !isMicroBadge && containerHeight > 0 && containerHeight < 135;
 
     const overlay = document.createElement("div");
-    overlay.className = isCompactBanner
+    overlay.className = isMicroBadge
+      ? "adshield-warning-overlay adshield-overlay-micro"
+      : isCompactBanner
       ? "adshield-warning-overlay adshield-overlay-compact"
       : "adshield-warning-overlay";
     overlay.setAttribute("data-testid", "adshield__warning--overlay");
@@ -335,11 +311,15 @@
     reasonPara.className = "adshield-reason-text";
     reasonPara.textContent = reasonText;
 
+    const closedBtnLabel = isMicroBadge ? "Quảng cáo độc hại" : WARNING_BUTTON_TEXT;
+    const openedBtnLabel = isMicroBadge ? "Ẩn lại" : HIDE_AGAIN_BUTTON_TEXT;
+
     const toggleButton = document.createElement("button");
     toggleButton.type = "button";
     toggleButton.className = "adshield-reveal-btn";
     toggleButton.setAttribute("data-testid", "adshield__reveal--btn");
-    toggleButton.textContent = WARNING_BUTTON_TEXT;
+    toggleButton.title = WARNING_BUTTON_TEXT;
+    toggleButton.textContent = closedBtnLabel;
 
     let isRevealed = false;
     toggleButton.addEventListener("click", (event) => {
@@ -355,7 +335,7 @@
           imgElement.style.filter = "none";
         }
         overlay.classList.add("adshield-overlay-minimized");
-        toggleButton.textContent = HIDE_AGAIN_BUTTON_TEXT;
+        toggleButton.textContent = openedBtnLabel;
       } else {
         targetToBlur.style.filter = "blur(10px)";
         targetToBlur.classList.remove("adshield-unblurred-target");
@@ -364,7 +344,7 @@
           imgElement.style.filter = "blur(10px)";
         }
         overlay.classList.remove("adshield-overlay-minimized");
-        toggleButton.textContent = WARNING_BUTTON_TEXT;
+        toggleButton.textContent = closedBtnLabel;
       }
     });
 

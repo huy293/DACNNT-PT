@@ -69,6 +69,10 @@
 
     if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
       chrome.runtime.sendMessage({ type: "ADSHIELD_GET_STATS" }, (response) => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          showOnlyState(elEmpty);
+          return;
+        }
         if (response && response.ok) {
           if (response.settings && response.settings.apiEndpoint) {
             elInputUrl.value = response.settings.apiEndpoint;
@@ -88,11 +92,26 @@
     if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.query) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const activeTab = tabs && tabs[0];
-        if (!activeTab || !activeTab.id) {
+        if (!activeTab || !activeTab.id || !activeTab.url || !activeTab.url.startsWith("http")) {
           refreshPopupState();
           return;
         }
         chrome.tabs.sendMessage(activeTab.id, { type: "ADSHIELD_SCAN_NOW" }, (res) => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            // Tab was opened before extension reload: auto-inject content.js and scan
+            if (chrome.scripting && chrome.scripting.executeScript) {
+              chrome.scripting.executeScript(
+                { target: { tabId: activeTab.id }, files: ["content.js"] },
+                () => {
+                  void (chrome.runtime && chrome.runtime.lastError);
+                  setTimeout(refreshPopupState, 600);
+                }
+              );
+            } else {
+              refreshPopupState();
+            }
+            return;
+          }
           if (res && res.ok && res.summary) {
             renderStats(res.summary);
           } else {

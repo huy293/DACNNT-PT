@@ -124,3 +124,22 @@ if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage)
     return false;
   });
 }
+
+// Automatically re-inject content script into open tabs when Extension is reloaded in chrome://extensions
+if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onInstalled) {
+  chrome.runtime.onInstalled.addListener(() => {
+    if (!chrome.tabs || !chrome.scripting) return;
+    chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
+      if (chrome.runtime && chrome.runtime.lastError) return;
+      (tabs || []).forEach((tab) => {
+        if (!tab || !tab.id) return;
+        chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["content.css"] }, () => {
+          void (chrome.runtime && chrome.runtime.lastError);
+        });
+        chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }, () => {
+          void (chrome.runtime && chrome.runtime.lastError);
+        });
+      });
+    });
+  });
+}

@@ -9,6 +9,20 @@
  */
 
 (function initAdShieldContentScript() {
+  if (typeof window.__adshieldCleanup === "function") {
+    try {
+      window.__adshieldCleanup();
+    } catch (_e) {}
+  }
+
+  function isExtensionContextValid() {
+    try {
+      return Boolean(typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id);
+    } catch (_e) {
+      return false;
+    }
+  }
+
   const DEFAULT_API_URL = "http://127.0.0.1:8000/predict";
   const WARNING_BUTTON_TEXT = "Quảng cáo này có thể chứa nội dung độc hại. Nhấp để xem";
   const HIDE_AGAIN_BUTTON_TEXT = "Ẩn lại quảng cáo độc hại";
@@ -375,18 +389,16 @@
   }
 
   async function requestPrediction(payload, customApiUrl) {
-    if (
-      typeof chrome !== "undefined" &&
-      chrome.runtime &&
-      chrome.runtime.id &&
-      typeof chrome.runtime.sendMessage === "function" &&
-      !customApiUrl
-    ) {
+    if (isExtensionContextValid() && !customApiUrl) {
       return new Promise((resolve) => {
         try {
           chrome.runtime.sendMessage({ type: "ADSHIELD_PREDICT", payload }, (response) => {
-            if (chrome.runtime && chrome.runtime.lastError) return resolve(null);
-            resolve(response && response.ok && response.data ? response.data : null);
+            try {
+              if (chrome.runtime && chrome.runtime.lastError) return resolve(null);
+              resolve(response && response.ok && response.data ? response.data : null);
+            } catch (_e) {
+              resolve(null);
+            }
           });
         } catch (_err) {
           resolve(null);
@@ -453,29 +465,41 @@
     WARNING_BUTTON_TEXT,
   };
 
-  if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id && chrome.runtime.onMessage) {
-    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-      if (msg && msg.type === "ADSHIELD_SCAN_NOW") {
-        scanPageAds({ forceRescan: true }).then((summary) => sendResponse({ ok: true, summary }));
-        return true;
-      }
-      return false;
-    });
+  if (isExtensionContextValid()) {
+    try {
+      chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+        if (msg && msg.type === "ADSHIELD_SCAN_NOW") {
+          scanPageAds({ forceRescan: true }).then((summary) => sendResponse({ ok: true, summary }));
+          return true;
+        }
+        return false;
+      });
+    } catch (_e) {}
   }
 
   scanPageAds();
 
   let debounceTimer = null;
+  let observer = null;
+
+  function cleanupListeners() {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (observer) observer.disconnect();
+    window.removeEventListener("scroll", scheduleScan);
+    document.removeEventListener("load", scheduleScan, true);
+  }
+  window.__adshieldCleanup = cleanupListeners;
+
   function scheduleScan() {
-    if (typeof chrome !== "undefined" && (!chrome.runtime || !chrome.runtime.id)) {
-      observer.disconnect();
+    if (typeof chrome !== "undefined" && !isExtensionContextValid() && !window.ADSHIELD_API_URL) {
+      cleanupListeners();
       return;
     }
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => scanPageAds(), 400);
   }
 
-  const observer = new MutationObserver(scheduleScan);
+  observer = new MutationObserver(scheduleScan);
   if (document.body) {
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("scroll", scheduleScan, { passive: true });

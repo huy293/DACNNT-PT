@@ -20,17 +20,11 @@
   ];
 
   function detectPageGamblingSignals() {
-    const pageSample = (
-      (document.title || "") +
-      " " +
-      (window.location.hostname || "") +
-      " " +
-      Array.from(document.querySelectorAll("header, nav, .header, .menu, .navbar, a"))
-        .slice(0, 60)
-        .map((el) => (el.innerText || el.textContent || "").trim())
-        .join(" ")
-    ).toLowerCase();
-
+    const navSample = Array.from(document.querySelectorAll("header, nav, .header, .menu, .navbar, a"))
+      .slice(0, 60)
+      .map((el) => (el.innerText || el.textContent || "").trim())
+      .join(" ");
+    const pageSample = `${document.title || ""} ${window.location.hostname || ""} ${navSample}`.toLowerCase();
     return GAMBLING_CONTEXT_TERMS.filter((term) => pageSample.includes(term));
   }
 
@@ -39,22 +33,18 @@
 
   function isSafeNavigationOrLogo(imgEl) {
     try {
-      const rect = imgEl.getBoundingClientRect();
-      if (rect.width > 0 && rect.top >= 0 && rect.top < 75 && rect.left >= 0 && rect.left < 260) {
-        return true;
-      }
+      const r = imgEl.getBoundingClientRect();
+      if (r.width > 0 && r.top >= 0 && r.top < 75 && r.left >= 0 && r.left < 260) return true;
     } catch (_e) {}
     const parentBox = imgEl.closest("a, button, li, div");
     if (parentBox) {
       const txt = (parentBox.innerText || parentBox.textContent || "").trim();
-      if (txt && txt.length <= 35 && SAFE_NAV_PATTERN.test(txt)) {
-        return true;
-      }
+      if (txt && txt.length <= 35 && SAFE_NAV_PATTERN.test(txt)) return true;
     }
     const anchor = imgEl.closest("a[href]");
     if (anchor) {
       const href = (anchor.getAttribute("href") || "").trim();
-      const cls = ((imgEl.className || "") + " " + (anchor.className || "") + " " + (imgEl.alt || "")).toLowerCase();
+      const cls = `${imgEl.className || ""} ${anchor.className || ""} ${imgEl.alt || ""}`.toLowerCase();
       if (href === "/" || cls.includes("logo")) return true;
     }
     return false;
@@ -76,6 +66,19 @@
     return isGifBanner || isWideLeaderboard || isThinBookmakerBadge || (inBannerBox && w >= 45);
   }
 
+  function countCardImages(el) {
+    if (!el || !el.querySelectorAll) return 0;
+    let count = 0;
+    const imgs = el.querySelectorAll("img");
+    for (let i = 0; i < imgs.length; i += 1) {
+      const im = imgs[i];
+      const w = im.naturalWidth || im.width || im.clientWidth || 0;
+      const h = im.naturalHeight || im.height || im.clientHeight || 0;
+      if ((w === 0 && h === 0) || w >= 48 || h >= 48) count += 1;
+    }
+    return count;
+  }
+
   function findClosestMediaTextContainer(imgEl) {
     const explicitCard = imgEl.closest("[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card']");
     if (explicitCard) return explicitCard;
@@ -83,53 +86,49 @@
     const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || 0;
     const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
     const aspect = h > 0 ? w / h : 1;
-    // Only isolate thin horizontal badges/buttons (h <= 42, aspect >= 2.0), never normal 160x100 article thumbnails
     if (h > 0 && h <= 42 && aspect >= 2.0) {
       const tightAnchor = imgEl.closest("a[href], button");
-      if (tightAnchor && tightAnchor.querySelectorAll("img").length === 1) return tightAnchor;
+      if (tightAnchor && countCardImages(tightAnchor) <= 1) return tightAnchor;
       return imgEl;
     }
 
-    const feedCard = imgEl.closest("article, .feed-card, .item-news, .box-category-item, .MjjYud, .g, .isv-r");
-    if (feedCard && feedCard.querySelectorAll("img").length <= 1 && (feedCard.clientHeight || 0) <= 800) {
-      return feedCard;
+    // Climb up to the highest single-image card root so thumbnail + card title stay together
+    let bestCard = imgEl;
+    let curr = imgEl.parentElement;
+    for (let depth = 0; depth < 5 && curr && curr !== document.body; depth += 1) {
+      if (["MAIN", "HEADER", "FOOTER", "NAV"].includes(curr.tagName)) break;
+      if (countCardImages(curr) > 1) break;
+      const ch = curr.clientHeight || 0;
+      const txtLen = (curr.innerText || curr.textContent || "").trim().length;
+      if (ch > 600 || txtLen > 450) break;
+      bestCard = curr;
+      curr = curr.parentElement;
     }
-
-    const figureOrAnchor = imgEl.closest("figure, a[href]");
-    if (figureOrAnchor && figureOrAnchor.querySelectorAll("img").length === 1) {
-      return figureOrAnchor;
-    }
-
-    let current = imgEl.parentElement;
-    for (let depth = 0; depth < 3 && current && current !== document.body; depth += 1) {
-      if (current.querySelectorAll("img").length > 1) break;
-      if (current.querySelector("p, span, h2, h3, h4, figcaption, a")) return current;
-      current = current.parentElement;
-    }
-    return (imgEl.parentElement && imgEl.parentElement.querySelectorAll("img").length === 1)
-      ? imgEl.parentElement
-      : imgEl;
+    return bestCard;
   }
 
   function extractAdjacentSiblingText(node) {
     const parts = [];
-    let anchor = node;
-    if (anchor && anchor.parentElement && anchor.parentElement.querySelectorAll("img").length === 1) {
-      if (["P", "FIGURE", "A", "DIV"].includes(anchor.parentElement.tagName)) anchor = anchor.parentElement;
-    }
-    if (!anchor) return parts;
-    let prev = anchor.previousElementSibling;
-    for (let step = 0; step < 3 && prev; step += 1) {
-      if (!prev.querySelector("img")) {
-        const txt = (prev.innerText || prev.textContent || "").trim();
-        if (txt && txt.length >= 4) parts.unshift(txt.slice(0, 260));
+    let curr = node;
+    for (let depth = 0; depth < 4 && curr && curr !== document.body; depth += 1) {
+      if (countCardImages(curr) > 1) break;
+      let prev = curr.previousElementSibling;
+      for (let step = 0; step < 2 && prev; step += 1) {
+        if (countCardImages(prev) === 0) {
+          const txt = (prev.innerText || prev.textContent || "").replace(/\s+/g, " ").trim();
+          if (txt && txt.length >= 4 && !parts.includes(txt.slice(0, 260))) parts.unshift(txt.slice(0, 260));
+        }
+        prev = prev.previousElementSibling;
       }
-      prev = prev.previousElementSibling;
-    }
-    const next = anchor.nextElementSibling;
-    if (next && !next.querySelector("img")) {
-      const txt = (next.innerText || next.textContent || "").trim();
-      if (txt && txt.length >= 4) parts.push(txt.slice(0, 220));
+      let next = curr.nextElementSibling;
+      for (let step = 0; step < 2 && next; step += 1) {
+        if (countCardImages(next) === 0) {
+          const txt = (next.innerText || next.textContent || "").replace(/\s+/g, " ").trim();
+          if (txt && txt.length >= 4 && !parts.includes(txt.slice(0, 260))) parts.push(txt.slice(0, 260));
+        }
+        next = next.nextElementSibling;
+      }
+      curr = curr.parentElement;
     }
     return parts;
   }
@@ -148,11 +147,11 @@
     });
 
     const ctaKeywords =
-      "top nhà cái|cược|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
+      "top nhà cái|cược|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
     root.querySelectorAll("a, button, span").forEach((btnEl) => {
       if (btnEl.getAttribute("data-adshield-scanned") === "true" || btnEl.querySelector("img")) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").trim().toLowerCase();
-      if (txt.length >= 4 && txt.length <= 45 && ctaKeywords.some((kw) => txt.includes(kw))) {
+      if (txt.length >= 4 && txt.length <= 65 && ctaKeywords.some((kw) => txt.includes(kw))) {
         candidates.add(btnEl);
       }
     });
@@ -162,10 +161,12 @@
       const container = findClosestMediaTextContainer(imgEl);
       if (!container || container.getAttribute("data-adshield-scanned") === "true") return;
       const width = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || container.clientWidth || 0;
+      const containerText = (container.innerText || container.textContent || "").replace(/\s+/g, " ").trim();
       const hasLocalOrSiblingText =
-        Boolean(container.querySelector("p, span, h2, h3, h4, figcaption, a, button")) ||
+        containerText.length >= 4 ||
+        Boolean(container.querySelector("p, span, h1, h2, h3, h4, h5, h6, figcaption, a, button, div")) ||
         extractAdjacentSiblingText(imgEl).length > 0;
-      if ((hasLocalOrSiblingText && width >= 60) || isBannerLikeImage(imgEl)) {
+      if ((hasLocalOrSiblingText && (width >= 48 || width === 0)) || isBannerLikeImage(imgEl)) {
         candidates.add(container);
       }
     });
@@ -185,16 +186,20 @@
         : adContainer.querySelector("a[href]") || adContainer.closest("a[href]");
     const linkHref = anchorEl ? anchorEl.getAttribute("href") || anchorEl.href || "" : "";
 
-    const textNodes = adContainer.querySelectorAll("p, span, h2, h3, h4, figcaption, a, button, [data-ad-text]");
+    const textNodes = adContainer.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, span, figcaption, a, button, strong, b, div, [data-ad-text]"
+    );
     const collectedParts = [];
 
-    const selfText = (adContainer.innerText || adContainer.textContent || "").trim();
-    if (selfText && selfText.length >= 4 && selfText.length <= 160) collectedParts.push(selfText);
+    const selfText = (adContainer.innerText || adContainer.textContent || "").replace(/\s+/g, " ").trim();
+    if (selfText && selfText.length >= 4 && selfText.length <= 360) collectedParts.push(selfText);
 
     textNodes.forEach((node) => {
       if (node.closest(".adshield-warning-overlay")) return;
-      const txt = (node.innerText || node.textContent || "").trim();
-      if (txt && txt.length >= 3 && !collectedParts.includes(txt)) collectedParts.push(txt);
+      const txt = (node.innerText || node.textContent || "").replace(/\s+/g, " ").trim();
+      if (txt && txt.length >= 3 && txt.length <= 280 && !collectedParts.includes(txt)) {
+        collectedParts.push(txt);
+      }
     });
 
     if (imgElement) {
@@ -202,11 +207,9 @@
       if (altAndTitle && !collectedParts.includes(altAndTitle)) collectedParts.push(altAndTitle);
     }
 
-    if (collectedParts.join(" ").length < 40) {
-      extractAdjacentSiblingText(imgElement || adContainer).forEach((st) => {
-        if (!collectedParts.includes(st)) collectedParts.push(st);
-      });
-    }
+    extractAdjacentSiblingText(imgElement || adContainer).forEach((st) => {
+      if (!collectedParts.includes(st)) collectedParts.push(st);
+    });
 
     if (imgElement && isBannerLikeImage(imgElement)) {
       const joinedText = collectedParts.join(" ").trim();

@@ -18,6 +18,23 @@
    * Supports explicit ad cards (`[data-ad-card]`, `.ad-card`, `.sponsored-post`) as well as
    * generic containers containing `<img>` accompanied by `<p>` or `<span>`.
    */
+  function findClosestMediaTextContainer(imgEl) {
+    const knownCard = imgEl.closest(
+      "[data-ad-card], .ad-card, .sponsored-post, article, .feed-card, .item-news, .box-category-item, .MjjYud, .g, .isv-r"
+    );
+    if (knownCard) {
+      return knownCard;
+    }
+    let current = imgEl.parentElement;
+    for (let depth = 0; depth < 4 && current && current !== document.body; depth += 1) {
+      if (current.querySelector("p, span, h3")) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+    return imgEl.parentElement;
+  }
+
   function findAdCandidates(root = document) {
     const explicitSelectors = [
       "[data-ad-card]",
@@ -37,17 +54,15 @@
       });
     });
 
-    // General heuristic from Stage 4 Week 6 plan: <img> accompanied by <p> or <span>
+    // General heuristic from Stage 4 Week 6 plan: <img> accompanied by <p>, <span>, or <h3>
     root.querySelectorAll("img").forEach((imgEl) => {
-      const container =
-        imgEl.closest("[data-ad-card], .ad-card, .sponsored-post, article, .feed-card") ||
-        imgEl.parentElement;
+      const container = findClosestMediaTextContainer(imgEl);
       if (!container || container.getAttribute("data-adshield-scanned") === "true") {
         return;
       }
-      const hasTextCompanion = Boolean(container.querySelector("p, span"));
+      const hasTextCompanion = Boolean(container.querySelector("p, span, h3"));
       const width = imgEl.naturalWidth || imgEl.width || container.clientWidth || 0;
-      if (hasTextCompanion && width >= 120) {
+      if (hasTextCompanion && width >= 60) {
         candidates.add(container);
       }
     });

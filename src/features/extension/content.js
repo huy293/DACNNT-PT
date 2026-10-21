@@ -1,37 +1,18 @@
 /**
  * Stage 4 (Week 6 & 7): Content Script (`content.js`).
- *
- * Scans the current webpage for advertisement blocks containing `<img>` paired with
- * `<p>` or `<span>`, sends `{ text, image_url }` to the FastAPI Backend (`POST /predict`),
- * and when `is_harmful === true`:
- *   1. Sets `element.style.filter = "blur(10px)"` (exact CSS requirement from Stage 4 plan).
- *   2. Wraps a protective button outside: "Quảng cáo này có thể chứa nội dung độc hại. Nhấp để xem".
  */
-
 (function initAdShieldContentScript() {
   if (typeof window.__adshieldCleanup === "function") {
-    try {
-      window.__adshieldCleanup();
-    } catch (_e) {}
+    try { window.__adshieldCleanup(); } catch (_e) {}
   }
 
   function isExtensionContextValid() {
-    try {
-      return Boolean(typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id);
-    } catch (_e) {
-      return false;
-    }
+    try { return Boolean(typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id); } catch (_e) { return false; }
   }
 
   const DEFAULT_API_URL = "http://127.0.0.1:8000/predict";
   const WARNING_BUTTON_TEXT = "Quảng cáo này có thể chứa nội dung độc hại. Nhấp để xem";
   const HIDE_AGAIN_BUTTON_TEXT = "Ẩn lại quảng cáo độc hại";
-
-  /**
-   * Discover candidate advertisement containers on the webpage.
-   * Supports explicit ad cards (`[data-ad-card]`, `.ad-card`, `.sponsored-post`) as well as
-   * generic containers containing `<img>` accompanied by `<p>` or `<span>`.
-   */
   const GAMBLING_CONTEXT_TERMS = [
     "top nhà cái", "nhà cái", "tỷ lệ kèo", "kèo nhà cái", "soi kèo", "cược ngay",
     "cá cược", "cá độ", "nổ hũ", "tài xỉu", "casino", "xoilac", "cakhia", "8xbet",
@@ -53,17 +34,34 @@
     return GAMBLING_CONTEXT_TERMS.filter((term) => pageSample.includes(term));
   }
 
-  function isSiteHomepageLogo(imgEl) {
+  const SAFE_NAV_PATTERN =
+    /^(live\b|livescore|trận hot|blv\b|hôm nay|ngày mai|tất cả|bóng đá|bóng rổ|tennis|cầu lông|bóng chuyền|lịch thi đấu|highlight|xem lại|bảng xếp hạng|kqbđ|cẩm nang|tuyển dụng)/i;
+
+  function isSafeNavigationOrLogo(imgEl) {
+    try {
+      const rect = imgEl.getBoundingClientRect();
+      if (rect.width > 0 && rect.top >= 0 && rect.top < 75 && rect.left >= 0 && rect.left < 260) {
+        return true;
+      }
+    } catch (_e) {}
+    const parentBox = imgEl.closest("a, button, li, div");
+    if (parentBox) {
+      const txt = (parentBox.innerText || parentBox.textContent || "").trim();
+      if (txt && txt.length <= 35 && SAFE_NAV_PATTERN.test(txt)) {
+        return true;
+      }
+    }
     const anchor = imgEl.closest("a[href]");
-    const inHeader = Boolean(imgEl.closest("header, nav, .header, .navbar"));
-    if (!inHeader || !anchor) return false;
-    const href = (anchor.getAttribute("href") || "").trim();
-    const cls = ((imgEl.className || "") + " " + (anchor.className || "") + " " + (imgEl.alt || "")).toLowerCase();
-    return href === "/" || href === window.location.origin || href === window.location.origin + "/" || cls.includes("logo");
+    if (anchor) {
+      const href = (anchor.getAttribute("href") || "").trim();
+      const cls = ((imgEl.className || "") + " " + (anchor.className || "") + " " + (imgEl.alt || "")).toLowerCase();
+      if (href === "/" || cls.includes("logo")) return true;
+    }
+    return false;
   }
 
   function isBannerLikeImage(imgEl) {
-    if (isSiteHomepageLogo(imgEl)) return false;
+    if (isSafeNavigationOrLogo(imgEl)) return false;
     const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || 0;
     const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
     const src = (imgEl.currentSrc || imgEl.src || "").toLowerCase();
@@ -72,11 +70,11 @@
     const inBannerBox = Boolean(
       imgEl.closest('[class*="banner"], [class*="ads"], [id*="ads"], [class*="qc"], [class*="sponsor"], [class*="bet"], [class*="nhacai"]')
     );
-    const isGifBanner = src.includes(".gif") && w >= 45;
+    const isGifBanner = src.includes(".gif") && w >= 40;
     const isWideLeaderboard = w >= 220 && h >= 24 && aspect >= 2.2;
     const isRectangularBookmakerBadge =
-      w >= 45 && h >= 14 && aspect >= 1.7 && (inAnchor || inBannerBox || detectPageGamblingSignals().length > 0);
-    return isGifBanner || isWideLeaderboard || isRectangularBookmakerBadge || (inAnchor && w >= 75 && h >= 18) || (inBannerBox && w >= 50);
+      w >= 40 && h >= 12 && aspect >= 1.6 && (inAnchor || inBannerBox || detectPageGamblingSignals().length > 0);
+    return isGifBanner || isWideLeaderboard || isRectangularBookmakerBadge || (inAnchor && w >= 75 && h >= 18) || (inBannerBox && w >= 45);
   }
 
   function findClosestMediaTextContainer(imgEl) {
@@ -210,11 +208,9 @@
       });
     }
 
-    // If this is a pure-image banner (e.g., 8Xbet GIF/WebP banner with text baked into the image),
-    // include link destination and page-level gambling banner context for multimodal inference.
     if (imgElement && isBannerLikeImage(imgElement)) {
       const pageSignals = detectPageGamblingSignals();
-      if (pageSignals.length > 0 && collectedParts.join(" ").length < 35) {
+      if (pageSignals.length > 0 && !adContainer.querySelector("p")) {
         collectedParts.push(
           `Banner quảng cáo nhà cái cá cược trực tuyến (${pageSignals.slice(0, 4).join(", ")})`
         );
@@ -457,8 +453,6 @@
     } catch (_e) {}
   }
 
-  scanPageAds();
-
   let debounceTimer = null;
   let observer = null;
 
@@ -467,8 +461,16 @@
     if (observer) observer.disconnect();
     window.removeEventListener("scroll", scheduleScan);
     document.removeEventListener("load", scheduleScan, true);
+    document.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
+    document.querySelectorAll(".adshield-blurred-target").forEach((el) => {
+      el.style.filter = "none";
+      el.classList.remove("adshield-blurred-target");
+    });
+    document.querySelectorAll("[data-adshield-scanned]").forEach((el) => el.removeAttribute("data-adshield-scanned"));
   }
   window.__adshieldCleanup = cleanupListeners;
+
+  scanPageAds({ forceRescan: true });
 
   function scheduleScan() {
     if (typeof chrome !== "undefined" && !isExtensionContextValid() && !window.ADSHIELD_API_URL) {

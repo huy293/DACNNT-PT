@@ -315,17 +315,26 @@
     if (
       typeof chrome !== "undefined" &&
       chrome.runtime &&
+      chrome.runtime.id &&
       typeof chrome.runtime.sendMessage === "function" &&
       !customApiUrl
     ) {
       return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: "ADSHIELD_PREDICT", payload }, (response) => {
-          if (response && response.ok && response.data) {
-            resolve(response.data);
-          } else {
-            resolve(null);
-          }
-        });
+        try {
+          chrome.runtime.sendMessage({ type: "ADSHIELD_PREDICT", payload }, (response) => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+              resolve(null);
+              return;
+            }
+            if (response && response.ok && response.data) {
+              resolve(response.data);
+            } else {
+              resolve(null);
+            }
+          });
+        } catch (_err) {
+          resolve(null);
+        }
       });
     }
 
@@ -364,6 +373,9 @@
 
     for (let i = 0; i < candidates.length; i += 1) {
       const adContainer = candidates[i];
+      if (!adContainer || !adContainer.isConnected) {
+        continue;
+      }
       const adData = extractMultimodalAdData(adContainer, i + 1);
       if (!adData.text && !adData.image_url) {
         continue;
@@ -397,7 +409,7 @@
   };
 
   // Listen for manual re-scan command from Extension Popup
-  if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
+  if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg && msg.type === "ADSHIELD_SCAN_NOW") {
         scanPageAds({ forceRescan: true }).then((summary) => {
@@ -414,6 +426,10 @@
 
   let debounceTimer = null;
   const observer = new MutationObserver(() => {
+    if (typeof chrome !== "undefined" && (!chrome.runtime || !chrome.runtime.id)) {
+      observer.disconnect();
+      return;
+    }
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }

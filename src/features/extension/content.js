@@ -34,7 +34,9 @@
   function isSafeNavigationOrLogo(imgEl) {
     try {
       const r = imgEl.getBoundingClientRect();
-      if (r.width > 0 && r.top >= 0 && r.top < 75 && r.left >= 0 && r.left < 260) return true;
+      if (r.width > 0 && r.width <= 240 && r.height <= 75 && r.top >= 0 && r.top < 75 && r.left >= 0 && r.left < 260) {
+        return true;
+      }
     } catch (_e) {}
     const parentBox = imgEl.closest("a, button, li, div");
     if (parentBox) {
@@ -83,20 +85,19 @@
     const explicitCard = imgEl.closest("[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card']");
     if (explicitCard) return explicitCard;
 
-    const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || 0;
-    const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
-    const aspect = h > 0 ? w / h : 1;
-    if (h > 0 && h <= 42 && aspect >= 2.0) {
+    if (isBannerLikeImage(imgEl)) {
       const tightAnchor = imgEl.closest("a[href], button");
-      if (tightAnchor && countCardImages(tightAnchor) <= 1) return tightAnchor;
+      if (tightAnchor && countCardImages(tightAnchor) <= 1 && (tightAnchor.clientHeight || 0) <= 180) {
+        return tightAnchor;
+      }
       return imgEl;
     }
 
-    // Climb up to the highest single-image card root so thumbnail + card title stay together
     let bestCard = imgEl;
     let curr = imgEl.parentElement;
     for (let depth = 0; depth < 5 && curr && curr !== document.body; depth += 1) {
-      if (["MAIN", "HEADER", "FOOTER", "NAV"].includes(curr.tagName)) break;
+      const cls = String(curr.className || "").toLowerCase();
+      if (["MAIN", "HEADER", "FOOTER", "NAV"].includes(curr.tagName) || /header|navbar|menu|topbar/.test(cls)) break;
       if (countCardImages(curr) > 1) break;
       const ch = curr.clientHeight || 0;
       const txtLen = (curr.innerText || curr.textContent || "").trim().length;
@@ -157,7 +158,7 @@
     });
 
     root.querySelectorAll("img").forEach((imgEl) => {
-      if (imgEl.getAttribute("data-adshield-scanned") === "true") return;
+      if (imgEl.getAttribute("data-adshield-scanned") === "true" || isSafeNavigationOrLogo(imgEl)) return;
       const container = findClosestMediaTextContainer(imgEl);
       if (!container || container.getAttribute("data-adshield-scanned") === "true") return;
       const width = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || container.clientWidth || 0;
@@ -207,15 +208,14 @@
       if (altAndTitle && !collectedParts.includes(altAndTitle)) collectedParts.push(altAndTitle);
     }
 
-    extractAdjacentSiblingText(imgElement || adContainer).forEach((st) => {
-      if (!collectedParts.includes(st)) collectedParts.push(st);
-    });
-
-    if (imgElement && isBannerLikeImage(imgElement)) {
-      const joinedText = collectedParts.join(" ").trim();
-      const hasBettingOddsNumbers = /\b0\.\d{2}\b/.test(joinedText) || /\b\d+(\.\d+)?\/\d+(\.\d+)?\b/.test(joinedText);
+    const bannerMode = Boolean(imgElement && isBannerLikeImage(imgElement));
+    if (!bannerMode) {
+      extractAdjacentSiblingText(imgElement || adContainer).forEach((st) => {
+        if (!collectedParts.includes(st)) collectedParts.push(st);
+      });
+    } else {
       const pageSignals = detectPageGamblingSignals();
-      if (pageSignals.length > 0 && (joinedText.length === 0 || hasBettingOddsNumbers)) {
+      if (pageSignals.length > 0) {
         collectedParts.push(
           `Banner quảng cáo nhà cái cá cược trực tuyến (${pageSignals.slice(0, 4).join(", ")})`
         );

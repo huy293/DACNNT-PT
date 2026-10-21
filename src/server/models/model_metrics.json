@@ -1,0 +1,27 @@
+{
+  "stage": "Stage 2 (Week 3) - Classifier Training & Evaluation",
+  "target_accuracy_threshold": 0.75,
+  "meets_stage2_target": true,
+  "validation_metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "tp": 2,
+    "tn": 2,
+    "fp": 0,
+    "fn": 0
+  },
+  "full_dataset_metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "tp": 10,
+    "tn": 10,
+    "fp": 0,
+    "fn": 0
+  },
+  "saved_pkl_model": "E:\\DACNTT\\src\\server\\models\\harmful_ad_classifier.pkl",
+  "saved_json_weights": "E:\\DACNTT\\src\\mocks\\bootstrap_classifier_weights.json"
+}

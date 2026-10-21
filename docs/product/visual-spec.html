@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visual Product Spec & Kanban — AI-CODING-TEMPLATE</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --surface: #111827;
+      --surface-elevated: #1f2937;
+      --border: #374151;
+      --text: #f9fafb;
+      --text-muted: #9ca3af;
+      --primary: #6366f1;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius: 12px;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      overflow-x: hidden;
+      padding: 16px;
+    }
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+    }
+    .badge.primary { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border-color: #4f46e5; }
+    .badge.success { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: #059669; }
+    .badge.warning { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border-color: #d97706; }
+    h1 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .btn {
+      min-height: 44px;
+      min-width: 44px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    .btn.active, .btn:focus-visible {
+      background: var(--primary);
+      border-color: var(--primary);
+      outline: 2px solid #a5b4fc;
+      outline-offset: 2px;
+    }
+    .kanban-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 768px) {
+      body { padding: 24px; }
+      h1 { font-size: 26px; }
+      .kanban-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    .column {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .card {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .card-footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-row">
+        <span class="badge primary">Bước 1: Visual Spec Trước Markdown Spec</span>
+        <span class="badge success">Version: v0.2.0</span>
+        <span class="badge warning">Sprint 02 Active</span>
+      </div>
+      <h1>Bảng Duyệt Nghiệp Vụ & Tiến Độ Trực Quan (Visual Product Spec)</h1>
+      <p class="subtitle">
+        Con người / Product Owner duyệt tính năng, Actor và quy tắc nghiệp vụ bằng mắt trên giao diện này trước khi AI chuyển hóa thành <code>BUSINESS_FLOW.md</code> và <code>ROADMAP.md</code> để viết code.
+      </p>
+    </header>
+
+    <div class="filter-bar" role="toolbar" aria-label="Bộ lọc phân khu">
+      <button type="button" class="btn active" onclick="filterCards('all', this)">Tất cả phân khu (10)</button>
+      <button type="button" class="btn" onclick="filterCards('backend', this)">Backend API</button>
+      <button type="button" class="btn" onclick="filterCards('frontend', this)">Frontend UI</button>
+      <button type="button" class="btn" onclick="filterCards('infra', this)">Infra & Security</button>
+      <button type="button" class="btn" onclick="filterCards('mcp', this)">MCP 5 Lớp</button>
+    </div>
+
+    <main class="kanban-grid">
+      <!-- Cột 1: Đã hoàn thành & Đã kiểm thử -->
+      <section class="column" aria-label="Đã hoàn thành và kiểm thử">
+        <div class="column-header">
+          <span>✅ Đã Xong & Đạt QA (Sprint 01)</span>
+          <span class="badge success">5 mục</span>
+        </div>
+
+        <article class="card" data-domain="infra">
+          <div class="card-header"><span>[FEAT-001]</span><span>v0.1.0</span></div>
+          <div class="card-title">Khởi tạo Monorepo & 6 Thư mục .claude/</div>
+          <div class="card-desc">Tách biệt rõ frontend, backend, infra, mcp, docs và thiết lập rules/commands/skills.</div>
+          <div class="card-footer">
+            <span class="tag">Actor: System Architect</span>
+            <span class="tag">Folder: root + .claude/</span>
+          </div>
+        </article>
+
+        <article class="card" data-domain="backend">
+          <div class="card-header"><span>[FEAT-002]</span><span>v0.1.0</span></div>
+          <div class="card-title">Fail-Fast Env Validation (Zod)</div>
+          <div class="card-desc">Kiểm tra toàn bộ biến môi trường ngay giây đầu khởi động; thiếu biến dừng app ngay.</div>
+          <div class="card-footer">
+            <span class="tag">Actor: System</span>
+            <span class="tag">Folder: backend/</span>
+          </div>
+        </article>
+
+        <article class="card" data-domain="backend">
+          <div class="card-header"><span>[FEAT-003 & 004]</span><span>v0.1.0</span></div>
+          <div class="card-title">JWT + Refresh Token + Redis Blacklist</div>
+          <div class="card-desc">Thu hồi phiên tức thì khi đăng xuất hoặc bị khóa tài khoản (BF-AUTH-01).</div>
+          <div class="card-footer">
+            <span class="tag">Actor: Guest / User / Admin</span>
+            <span class="tag">Folder: backend/ + infra/</span>
+          </div>
+        </article>
+
+        <article class="card" data-domain="infra">
+          <div class="card-header"><span>[FEAT-005]</span><span>v0.1.0</span></div>
+          <div class="card-title">Chống Brute-Force Login (5 lần / 15 phút)</div>
+          <div class="card-desc">Khóa tạm thời trên Redis khi nhập sai mật khẩu quá 5 lần liên tiếp (BR-AUTH-02).</div>
+          <div class="card-footer">
+            <span class="tag">Actor: System</span>
+            <span class="tag">QA: Pass 7 Layers</span>
+          </div>
+        </article>
+      </section>
+
+      <!-- Cột 2: Đang làm trong Sprint hiện tại -->
+      <section class="column" aria-label="Đang thực thi trong Sprint 02">
+        <div class="column-header">
+          <span>🚀 Đang Làm (Sprint 02 Active)</span>
+          <span class="badge warning">3 mục</span>
+        </div>
+
+        <article class="card" data-domain="backend">
+          <div class="card-header"><span>[FEAT-006]</span><span>P0 - Critical</span></div>
+          <div class="card-title">Phân quyền RBAC Đa Vai Trò</div>
+          <div class="card-desc">Phân quyền chi tiết cho STUDENT, INSTRUCTOR, ADMIN trên từng nhóm route API.</div>
+          <div class="card-footer">
+            <span class="tag">Actor: Admin</span>
+            <span class="tag">Folder: backend/ + frontend/admin</span>
+          </div>
+        </article>
+
+        <article class="card" data-domain="backend">
+          <div class="card-header"><span>[FEAT-007]</span><span>P0 - Critical</span></div>
+          <div class="card-title">Thanh Toán Webhook IPN (Idempotency)</div>
+          <div class="card-desc">Xác thực HMAC-SHA256 và khóa phân tán Redis SETNX chống cộng tiền 2 lần (BF-PAY-02).</div>
+          <div class="card-footer">
+            <span class="tag">Actor: User / Payment Gateway</span>
+            <span class="tag">Clean-Room SPEC.md</span>
+          </div>
+        </article>
+
+        <article class="card" data-domain="frontend">
+          <div class="card-header"><span>[FEAT-009]</span><span>P1 - High</span></div>
+          <div class="card-title">Giao diện Khóa học & Checkout Mobile-First</div>
+          <div class="card-desc">Thiết kế chuẩn 360px-430px trước, đủ 4 trạng thái Loading, Error, Empty, Success.</div>
+          <div class="card-footer">
+            <span class="tag">Actor: Student</span>
+            <span class="tag">Folder: frontend/user/</span>
+          </div>
+        </article>
+      </section>
+
+      <!-- Cột 3: Kế hoạch tiếp theo (Backlog) -->
+      <section class="column" aria-label="Danh sách chờ Sprint 03 và 04">
+        <div class="column-header">
+          <span>📋 Chờ Triển Khai (Sprint 03–04)</span>
+          <span class="badge primary">2 cụm lớn</span>
+        </div>
+
+        <article class="card" data-domain="mcp">
+          <div class="card-header"><span>[FEAT-011 & 012]</span><span>Sprint 03</span></div>
+          <div class="card-title">MCP Server 5 Lớp Bảo Mật + Phản Xạ JEV</div>
+          <div class="card-desc">Kết nối Claude/ChatGPT qua API Key có hạn dùng, Rate Limit, RBAC Read Scope và chấm điểm JEV.</div>
+          <div class="card-footer">
+            <span class="tag">Actor: AI Agent / Admin</span>
+            <span class="tag">Folder: mcp/</span>
+          </div>
+        </article>
+
+        <article class="card" data-domain="infra">
+          <div class="card-header"><span>[FEAT-013 -> 019]</span><span>Sprint 03–04</span></div>
+          <div class="card-title">Observability 13 Trường Log & CI/CD Zero-Downtime</div>
+          <div class="card-desc">Giám sát Prometheus + Grafana + Loki + Tempo báo Telegram; CI/CD 8 bước duyệt PR thủ công.</div>
+          <div class="card-footer">
+            <span class="tag">Actor: DevOps / SRE</span>
+            <span class="tag">Folder: infra/</span>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    function filterCards(domain, btnEl) {
+      document.querySelectorAll('.filter-bar .btn').forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+      document.querySelectorAll('.card').forEach(card => {
+        if (domain === 'all' || card.dataset.domain === domain) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

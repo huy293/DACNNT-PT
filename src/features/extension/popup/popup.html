@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AdShield AI — Phát Hiện Quảng Cáo Gây Hại</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="popup-container" data-testid="extension__popup--root">
+    <header class="popup-header">
+      <div class="brand-row">
+        <span class="brand-badge">CLIP + MLP</span>
+        <h1 class="popup-title">AdShield Đa Phương Thức</h1>
+      </div>
+      <p class="popup-subtitle">Phát hiện &amp; làm mờ quảng cáo số gây hại dựa trên Văn bản – Hình ảnh</p>
+    </header>
+
+    <!-- 1. LOADING STATE -->
+    <section id="state-loading" class="state-card" data-testid="extension__state--loading">
+      <div class="skeleton-line skeleton-lg"></div>
+      <div class="skeleton-grid">
+        <div class="skeleton-box"></div>
+        <div class="skeleton-box"></div>
+      </div>
+      <p class="status-caption">Đang kết nối máy chủ suy luận AI...</p>
+    </section>
+
+    <!-- 2. ERROR STATE -->
+    <section id="state-error" class="state-card hidden" data-testid="extension__state--error">
+      <div class="alert-danger">
+        <strong>Không kết nối được Backend API</strong>
+        <p id="error-message-text">Hãy đảm bảo máy chủ FastAPI đang chạy tại cổng 8000 hoặc kiểm tra URL HuggingFace Spaces.</p>
+      </div>
+      <button type="button" id="btn-retry" class="btn btn-danger" data-testid="extension__retry--btn">
+        Thử lại kết nối (Retry)
+      </button>
+    </section>
+
+    <!-- 3. EMPTY STATE -->
+    <section id="state-empty" class="state-card hidden" data-testid="extension__state--empty">
+      <p class="empty-text">Chưa phát hiện quảng cáo nào được quét trên trang hiện tại.</p>
+      <button type="button" id="btn-scan-empty" class="btn btn-primary" data-testid="extension__empty-scan--btn">
+        Quét trang web ngay (CTA)
+      </button>
+    </section>
+
+    <!-- 4. SUCCESS STATE -->
+    <section id="state-success" class="state-card hidden" data-testid="extension__state--success">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">Đã quét</span>
+          <strong id="stat-total" class="stat-value" data-testid="extension__stat--total">0</strong>
+        </div>
+        <div class="stat-item stat-danger">
+          <span class="stat-label">Độc hại (Đã mờ)</span>
+          <strong id="stat-harmful" class="stat-value" data-testid="extension__stat--harmful">0</strong>
+        </div>
+        <div class="stat-item stat-success">
+          <span class="stat-label">An toàn</span>
+          <strong id="stat-safe" class="stat-value" data-testid="extension__stat--safe">0</strong>
+        </div>
+      </div>
+      <div class="action-row">
+        <button type="button" id="btn-rescan" class="btn btn-primary" data-testid="extension__scan--btn">
+          Quét lại trang hiện tại
+        </button>
+        <button type="button" id="btn-open-demo" class="btn btn-secondary" data-testid="extension__demo--btn">
+          Mở trang Demo
+        </button>
+      </div>
+    </section>
+
+    <!-- CONFIGURATION FORM -->
+    <section class="config-section">
+      <label class="field-label" for="input-api-url">Endpoint API (`POST /predict`):</label>
+      <input
+        id="input-api-url"
+        type="url"
+        class="field-input"
+        data-testid="extension__api-url--input"
+        value="http://127.0.0.1:8000/predict"
+        placeholder="http://127.0.0.1:8000/predict"
+      />
+      <button type="button" id="btn-save-config" class="btn btn-outline" data-testid="extension__save--btn">
+        Lưu cấu hình API
+      </button>
+      <p id="save-toast" class="save-toast hidden" role="status">Đã lưu cấu hình thành công!</p>
+    </section>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

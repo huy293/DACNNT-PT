@@ -1,0 +1,17 @@
+# ==============================================================================
+# MULTIMODAL HARMFUL AD DETECTOR — PYTHON DEPENDENCIES (Stage 1 -> Stage 3)
+# ==============================================================================
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+pydantic>=2.9.0
+numpy>=1.26.0
+pandas>=2.2.0
+scikit-learn>=1.5.0
+lightgbm>=4.5.0
+Pillow>=10.4.0
+opencv-python-headless>=4.10.0.84
+transformers>=4.45.0
+torch>=2.4.0
+pytest>=8.3.0
+httpx>=0.27.0

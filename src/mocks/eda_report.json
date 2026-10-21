@@ -1,0 +1,49 @@
+{
+  "stage": "Stage 1 - Dataset Preprocessing & EDA",
+  "dataset_source": "sample_ads_dataset.json",
+  "pandas_used": false,
+  "opencv_used": false,
+  "total_raw_samples": 20,
+  "total_valid_samples": 20,
+  "rejected_corrupted_samples": 0,
+  "rejected_sample_ids": [],
+  "image_statistics": {
+    "min_width": 600,
+    "max_width": 900,
+    "avg_width": 767.0,
+    "min_height": 400,
+    "max_height": 640,
+    "avg_height": 488.5
+  },
+  "text_statistics": {
+    "min_char_length": 97,
+    "max_char_length": 140,
+    "avg_char_length": 124.1,
+    "min_word_count": 20,
+    "max_word_count": 33,
+    "avg_word_count": 27.3
+  },
+  "class_distribution": {
+    "harmful_ads_label_1": 10,
+    "safe_ads_label_0": 10,
+    "harmful_percentage": 50.0,
+    "safe_percentage": 50.0,
+    "imbalance_ratio": 1.0,
+    "is_imbalanced": false
+  },
+  "category_breakdown": {
+    "gambling_scam": 2,
+    "hate_speech_meme": 3,
+    "medical_misinformation": 2,
+    "financial_scam": 2,
+    "phishing_scam": 1,
+    "education": 2,
+    "food_beverage": 1,
+    "retail_fashion": 1,
+    "technology": 2,
+    "travel": 1,
+    "books_culture": 1,
+    "productivity_app": 1,
+    "healthcare_legit": 1
+  }
+}

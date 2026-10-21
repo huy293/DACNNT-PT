@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables & Secrets (RULE 04 Read-Only Blacklist)
+.env
+.env.local
+.env.production
+*.pem
+*.key
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+coverage/
+
+# ML Datasets & Large Weights (keep lightweight bootstrap weights in src/mocks/)
+data/raw/
+*.pt
+*.bin
+*.onnx
+*.h5
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

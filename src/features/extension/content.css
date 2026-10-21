@@ -43,10 +43,15 @@
 
 .adshield-warning-overlay.adshield-overlay-minimized {
   inset: auto 12px 12px auto !important;
-  padding: 8px 12px !important;
+  padding: 6px 8px !important;
   border-radius: 10px !important;
   background: rgba(15, 23, 42, 0.92) !important;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35) !important;
+}
+
+.adshield-warning-overlay.adshield-overlay-minimized .adshield-badge-danger,
+.adshield-warning-overlay.adshield-overlay-minimized .adshield-reason-text {
+  display: none !important;
 }
 
 .adshield-badge-danger {

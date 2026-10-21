@@ -24,16 +24,21 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DATASET_PATH = PROJECT_ROOT / "src" / "mocks" / "sample_ads_dataset.json"
 DEFAULT_FEATURES_CSV = PROJECT_ROOT / "src" / "mocks" / "features.csv"
 
-# High-signal Vietnamese & English harmful advertisement / hate-speech lexicon groups
+# High-signal Vietnamese & English harmful advertisement / hate-speech lexicon groups (Primary Harmful Signals)
 HARMFUL_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
-    ("nạp", "nổ hũ", "casino", "cá độ", "tài xỉu", "cược", "sòng bài", "rút tiền"),
-    ("vay nóng", "không thế chấp", "giải ngân", "nợ xấu", "x100", "tiền ảo", "lãi suất 0"),
-    ("thần dược", "chữa khỏi dứt điểm", "ung thư", "giấu kín", "giảm cân cấp tốc", "cam kết hoàn tiền 200"),
-    ("trúng thưởng", "miễn phí", "mật khẩu", "mã otp", "nhận quà", "chốt đơn", "hoa hồng", "nạp cọc"),
-    ("đuổi cổ", "vô dụng", "loại bỏ", "bẩn thỉu", "tiêu diệt", "tẩy chay", "tấn công", "đáng bị"),
-    ("inferior", "disgusting", "extremist", "destroy", "hate", "scam", "miracle cure", "betting"),
-    ("100%", "99%", "200%", "x100", "30 giây", "5 phút", "3 ngày", "vip"),
-    ("hack", "bịp", "lừa đảo", "độc hại", "cấm", "bí mật", "khẩn cấp", "nhấp vào link"),
+    ("nổ hũ", "casino", "cá độ", "tài xỉu", "cá cược", "sòng bài", "nhà cái", "rút tiền về ví", "tặng 88k", "nạp đầu"),
+    ("vay nóng", "không thế chấp", "không thẩm định", "giải ngân", "bao nợ xấu", "lãi suất 0%", "x100 tài khoản", "tiền ảo x100"),
+    ("thần dược", "chữa khỏi dứt điểm", "trị dứt điểm", "chữa ung thư", "bệnh viện giấu kín", "giảm cân cấp tốc", "cam kết hoàn tiền 200%"),
+    ("mật khẩu ngân hàng", "mã otp", "nhập otp", "cung cấp mật khẩu", "việc nhẹ lương cao", "chốt đơn ảo", "nạp cọc"),
+    ("đuổi cổ", "đồ vô dụng", "loại bỏ khỏi xã hội", "bẩn thỉu", "tiêu diệt", "tẩy chay bọn", "đáng bị loại bỏ"),
+    ("inferior group", "disgusting", "extremist", "destroy our", "hate speech", "miracle cure", "illegal betting"),
+    ("cờ bạc", "lô đề", "xóc đĩa", "bắn cá đổi thưởng", "vay tiền nhanh CMND", "tín dụng đen"),
+    ("lừa đảo chiếm đoạt", "hack tài khoản", "bịp bợm", "thuốc gia truyền 3 đời", "trúng thưởng iphone"),
+)
+
+# Secondary hype/urgency amplifiers (only boost score when paired with a primary harmful signal)
+HYPE_AMPLIFIER_TERMS: Tuple[str, ...] = (
+    "100%", "200%", "x100", "30 giây", "5 phút", "3 ngày", "vip", "miễn phí", "khẩn cấp", "nhấp vào link",
 )
 
 SAFE_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
@@ -67,23 +72,10 @@ def extract_visual_embedding_32d(
     red_ratio = float(meta.get("red_ratio", -1.0))
     overlay_density = float(meta.get("overlay_text_density", -1.0))
 
-    if image_bytes and len(image_bytes) > 16:
-        sample = image_bytes[:4096]
-        mean_val = sum(sample) / len(sample)
-        variance = sum((b - mean_val) ** 2 for b in sample) / len(sample)
-        byte_contrast = min(1.0, math.sqrt(variance) / 90.0)
-        high_bytes = sum(1 for b in sample if b > 200) / len(sample)
-        if contrast < 0:
-            contrast = round(0.45 + 0.5 * byte_contrast, 4)
-        if red_ratio < 0:
-            red_ratio = round(0.25 + 0.6 * high_bytes, 4)
-        if overlay_density < 0:
-            overlay_density = round(0.30 + 0.5 * byte_contrast, 4)
-
     # Infer visual cues from filename/URL/SVG Data-URI when raw metadata is not explicitly provided
     harmful_visual_cues = (
-        "casino", "scam", "hate", "meme", "vip", "hack", "thuoc", "vay",
-        "gambling", "danger", "alert", "red", "#dc2626", "#ef4444", "#ff0000", "blink",
+        "casino", "scam", "hate", "meme_harm", "nha_cai", "thuoc_gia", "vay_nong",
+        "gambling", "danger_banner", "#dc2626", "#ef4444", "#ff0000",
     )
     safe_visual_cues = (
         "khoa_hoc", "ca_phe", "giay", "laptop", "du_lich", "sach",
@@ -91,6 +83,12 @@ def extract_visual_embedding_32d(
     )
     harm_cue_hits = sum(1 for cue in harmful_visual_cues if cue in hint_lower)
     safe_cue_hits = sum(1 for cue in safe_visual_cues if cue in hint_lower)
+
+    # Check if SVG/text bytes contain explicit high-alert red banner colors
+    if image_bytes and len(image_bytes) > 16 and harm_cue_hits == 0:
+        header_ascii = image_bytes[:1024].decode("utf-8", errors="ignore").lower()
+        if any(c in header_ascii for c in ("#dc2626", "#ef4444", "#ff0000", "casino", "vay nóng")):
+            harm_cue_hits += 2
 
     if contrast < 0:
         contrast = min(0.95, 0.78 + 0.05 * harm_cue_hits) if harm_cue_hits > safe_cue_hits else 0.34

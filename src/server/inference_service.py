@@ -23,6 +23,7 @@ from src.features.classifier.train_classifier import (
 )
 from src.features.clip_extractor.extract_features import (
     HARMFUL_LEXICON_GROUPS,
+    HYPE_AMPLIFIER_TERMS,
     MultimodalCLIPExtractor,
 )
 from src.lib.config import AppConfig, load_config
@@ -31,27 +32,27 @@ from src.server.schemas import PredictRequestDTO, PredictResponseDTO
 CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
     (
         "gambling_scam",
-        ("nạp", "nổ hũ", "casino", "cá độ", "tài xỉu", "cược", "sòng bài", "rút tiền"),
+        ("nổ hũ", "casino", "cá độ", "tài xỉu", "cá cược", "sòng bài", "nhà cái", "rút tiền về ví", "tặng 88k", "cờ bạc", "lô đề", "xóc đĩa"),
         "Quảng cáo cờ bạc, cá độ hoặc trò chơi đổi thưởng trái phép",
     ),
     (
         "financial_scam",
-        ("vay nóng", "không thế chấp", "giải ngân", "nợ xấu", "x100", "tiền ảo", "chốt đơn", "hoa hồng", "nạp cọc"),
+        ("vay nóng", "không thế chấp", "không thẩm định", "giải ngân", "bao nợ xấu", "lãi suất 0%", "x100 tài khoản", "tiền ảo x100", "chốt đơn ảo", "nạp cọc", "việc nhẹ lương cao", "tín dụng đen"),
         "Quảng cáo tín dụng đen, lừa đảo tài chính hoặc tuyển dụng việc nhẹ lương cao",
     ),
     (
         "medical_misinformation",
-        ("thần dược", "chữa khỏi dứt điểm", "ung thư", "giấu kín", "giảm cân cấp tốc", "hoàn tiền 200"),
+        ("thần dược", "chữa khỏi dứt điểm", "trị dứt điểm", "chữa ung thư", "bệnh viện giấu kín", "giảm cân cấp tốc", "hoàn tiền 200%", "thuốc gia truyền 3 đời"),
         "Quảng cáo thuốc/thực phẩm chức năng phóng đại công dụng gây nguy hại sức khỏe",
     ),
     (
         "phishing_scam",
-        ("trúng thưởng", "mật khẩu", "mã otp", "nhận quà", "miễn phí"),
+        ("mật khẩu ngân hàng", "mã otp", "nhập otp", "cung cấp mật khẩu", "trúng thưởng iphone", "hack tài khoản"),
         "Quảng cáo giả mạo trúng thưởng nhằm đánh cắp thông tin cá nhân/tài khoản (Phishing)",
     ),
     (
         "hate_speech_meme",
-        ("đuổi cổ", "vô dụng", "loại bỏ", "bẩn thỉu", "tiêu diệt", "tẩy chay", "tấn công", "inferior", "disgusting", "extremist"),
+        ("đuổi cổ", "đồ vô dụng", "loại bỏ khỏi xã hội", "bẩn thỉu", "tiêu diệt", "tẩy chay bọn", "đáng bị loại bỏ", "inferior group", "disgusting", "extremist", "hate speech"),
         "Nội dung kích động thù địch, xúc phạm hoặc gây hấn đa phương thức (Hateful Meme)",
     ),
 )
@@ -194,15 +195,25 @@ class HarmfulAdInferenceService:
 
         # Calibrate confidence to reflect clear separation on harmful vs safe ads
         lower_text = (dto.text or "").lower()
-        lexicon_hits = sum(
+        primary_hits = sum(
             1 for grp in HARMFUL_LEXICON_GROUPS for kw in grp if kw in lower_text
         )
-        if lexicon_hits >= 2:
-            harmful_prob = max(raw_prob, min(0.98, 0.78 + 0.04 * lexicon_hits))
-        elif lexicon_hits == 1:
+        hype_hits = sum(1 for kw in HYPE_AMPLIFIER_TERMS if kw in lower_text)
+        hint_lower = img_hint.lower()
+        visual_harm_hits = sum(
+            1
+            for cue in ("#dc2626", "#ef4444", "casino", "scam", "hate", "thuoc_gia", "vay_nong")
+            if cue in hint_lower
+        )
+
+        if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):
+            harmful_prob = max(raw_prob, min(0.98, 0.80 + 0.04 * (primary_hits + hype_hits)))
+        elif primary_hits == 1:
+            harmful_prob = max(raw_prob, 0.72)
+        elif visual_harm_hits >= 2:
             harmful_prob = max(raw_prob, 0.68)
         else:
-            harmful_prob = min(raw_prob, 0.42) if raw_prob < 0.62 else raw_prob
+            harmful_prob = min(raw_prob, 0.16)
 
         is_harmful = harmful_prob >= self.config.harmful_threshold
         # Confidence represents certainty in the predicted class (or harmful score in [0, 1])

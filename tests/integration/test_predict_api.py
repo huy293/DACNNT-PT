@@ -81,6 +81,31 @@ class TestPredictAPIIntegration(unittest.TestCase):
             self.assertIs(data["is_harmful"], False)
             self.assertEqual(data["label"], "safe_ad")
 
+    def test_predict_normal_kaggle_and_ecommerce_cards_are_safe(self) -> None:
+        """Regression test: Normal Kaggle notebooks and e-commerce ads with '100%' or 'miễn phí' must be safe."""
+        cases = [
+            {
+                "text": "Related Notebooks: Exploratory Data Analysis & Confusion Matrix 99% Accuracy — 64 upvotes",
+                "image_url": "https://www.googleapis.com/download/storage/v1/b/kaggle-user-content/o/plot_123.png",
+            },
+            {
+                "text": "Giày chạy bộ chính hãng 100%, miễn phí vận chuyển toàn quốc trong 3 ngày, nhận quà bình nước thể thao.",
+                "image_url": "https://example.com/running_shoes_banner.jpg",
+            },
+        ]
+        for case in cases:
+            req = urllib.request.Request(
+                f"{self.base_url}/predict",
+                data=json.dumps(case).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertIs(data["is_harmful"], False, f"False positive on: {case['text']}")
+                self.assertEqual(data["label"], "safe_ad")
+
     def test_predict_multipart_form_upload(self) -> None:
         """Stage 3 Week 4: Supports multipart/form-data file upload + text field (Postman style)."""
         boundary = "----AdShieldTestBoundary987654"

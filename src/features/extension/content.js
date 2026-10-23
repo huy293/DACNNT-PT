@@ -66,8 +66,12 @@
     const imgs = el.querySelectorAll("img");
     for (let i = 0; i < imgs.length; i += 1) {
       const im = imgs[i];
+      const cls = String(im.className || "").toLowerCase();
+      const alt = String(im.alt || "").toLowerCase();
+      if (cls.includes("star") || alt.includes("star") || cls.includes("icon") || cls.includes("badge") || cls.includes("flag")) continue;
       const w = im.naturalWidth || im.width || im.clientWidth || 0;
       const h = im.naturalHeight || im.height || im.clientHeight || 0;
+      if (h > 0 && h <= 28) continue;
       if ((w === 0 && h === 0) || w >= 48 || h >= 48) count += 1;
     }
     return count;
@@ -82,7 +86,9 @@
   }
 
   function findClosestMediaTextContainer(imgEl) {
-    const explicitCard = imgEl.closest("[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card']");
+    const explicitCard = imgEl.closest(
+      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [data-offer-name], [data-deal-id], [class*='ranking-item'], [class*='offer-item']"
+    );
     if (explicitCard) return explicitCard;
 
     let bestCard = imgEl;
@@ -95,6 +101,7 @@
       const txtLen = (curr.innerText || curr.textContent || "").trim().length;
       if (ch > 750 || txtLen > 950) break;
       bestCard = curr;
+      if (curr.hasAttribute("data-offer-name") || (cls.includes("offer") && cls.includes("item"))) return curr;
       curr = curr.parentElement;
     }
 
@@ -142,7 +149,7 @@
   function findAdCandidates(root = document) {
     const explicitSelectors = [
       "[data-ad-card]", ".ad-card", ".sponsored-post", '[data-testid*="ad-card"]',
-      '[aria-label*="Sponsored"]', '[aria-label*="Được tài trợ"]',
+      '[aria-label*="Sponsored"]', '[aria-label*="Được tài trợ"]', "[data-offer-name]",
     ];
     const candidateSet = new Set();
 

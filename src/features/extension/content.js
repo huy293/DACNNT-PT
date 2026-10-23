@@ -10,6 +10,10 @@
     try { return Boolean(typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id); } catch (_e) { return false; }
   }
 
+  if (isExtensionContextValid()) {
+    try { chrome.runtime.sendMessage({ type: "ADSHIELD_PAGE_INIT" }); } catch (_e) {}
+  }
+
   const DEFAULT_API_URL = "http://127.0.0.1:8000/predict";
   const WARNING_BUTTON_TEXT = "Quảng cáo này có thể chứa nội dung độc hại. Nhấp để xem";
   const HIDE_AGAIN_BUTTON_TEXT = "Ẩn lại quảng cáo độc hại";
@@ -135,16 +139,11 @@
   }
 
   function findAdCandidates(root = document) {
-    const explicitSelectors = [
-      "[data-ad-card]", ".ad-card", ".sponsored-post", '[data-testid*="ad-card"]',
-      '[aria-label*="Sponsored"]', '[aria-label*="Được tài trợ"]',
-    ];
+    const explicitSelector =
+      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [aria-label*='Sponsored'], [aria-label*='Được tài trợ']";
     const candidates = new Set();
-
-    explicitSelectors.forEach((sel) => {
-      root.querySelectorAll(sel).forEach((el) => {
-        if (el.getAttribute("data-adshield-scanned") !== "true") candidates.add(el);
-      });
+    root.querySelectorAll(explicitSelector).forEach((el) => {
+      if (el.getAttribute("data-adshield-scanned") !== "true") candidates.add(el);
     });
 
     const ctaKeywords =
@@ -406,6 +405,9 @@
 
   async function scanPageAds(options = {}) {
     if (options.forceRescan) {
+      if (isExtensionContextValid()) {
+        try { chrome.runtime.sendMessage({ type: "ADSHIELD_RESET_TAB_STATS" }); } catch (_e) {}
+      }
       document.querySelectorAll("[data-adshield-scanned]").forEach((el) => {
         el.removeAttribute("data-adshield-scanned");
       });

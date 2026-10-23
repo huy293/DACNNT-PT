@@ -18,9 +18,9 @@
   const WARNING_BUTTON_TEXT = "Quảng cáo này có thể chứa nội dung độc hại. Nhấp để xem";
   const HIDE_AGAIN_BUTTON_TEXT = "Ẩn lại quảng cáo độc hại";
   const GAMBLING_CONTEXT_TERMS = [
-    "top nhà cái", "nhà cái", "tỷ lệ kèo", "kèo nhà cái", "soi kèo", "cược ngay",
-    "cá cược", "cá độ", "nổ hũ", "tài xỉu", "casino", "xoilac", "cakhia", "8xbet",
-    "fb88", "w88", "m88", "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88",
+    "top nhà cái", "nhà cái", "tỷ lệ kèo", "kèo nhà cái", "soi kèo", "cược ngay", "cá cược", "cá độ",
+    "nổ hũ", "tài xỉu", "casino", "xoilac", "cakhia", "8xbet", "fb88", "w88", "m88", "we88", "me88",
+    "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88",
   ];
 
   function detectPageGamblingSignals() {
@@ -38,9 +38,7 @@
   function isSafeNavigationOrLogo(imgEl) {
     try {
       const r = imgEl.getBoundingClientRect();
-      if (r.width > 0 && r.width <= 240 && r.height <= 75 && r.top >= 0 && r.top < 75 && r.left >= 0 && r.left < 260) {
-        return true;
-      }
+      if (r.width > 0 && r.width <= 240 && r.height <= 75 && r.top >= 0 && r.top < 75 && r.left >= 0 && r.left < 260) return true;
     } catch (_e) {}
     const parentBox = imgEl.closest("a, button, li, div");
     if (parentBox) {
@@ -86,14 +84,19 @@
   }
 
   function findClosestMediaTextContainer(imgEl) {
-    const explicitCard = imgEl.closest("[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card']");
-    if (explicitCard) return explicitCard;
+    const explicitCard = imgEl.closest(
+      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], article, li, [class*='rank-item'], [class*='bookmaker'], [class*='top-item'], [class*='list-item']"
+    );
+    if (explicitCard && countCardImages(explicitCard) <= 1 && (explicitCard.clientHeight || 0) <= 750) {
+      return explicitCard;
+    }
 
-    if (isBannerLikeImage(imgEl)) {
+    const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || 0;
+    const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
+    const aspect = h > 0 ? w / h : 1;
+    if (h > 0 && h <= 42 && aspect >= 2.0) {
       const tightAnchor = imgEl.closest("a[href], button");
-      if (tightAnchor && countCardImages(tightAnchor) <= 1 && (tightAnchor.clientHeight || 0) <= 180) {
-        return tightAnchor;
-      }
+      if (tightAnchor && countCardImages(tightAnchor) <= 1) return tightAnchor;
       return imgEl;
     }
 
@@ -105,10 +108,23 @@
       if (countCardImages(curr) > 1) break;
       const ch = curr.clientHeight || 0;
       const txtLen = (curr.innerText || curr.textContent || "").trim().length;
-      if (ch > 600 || txtLen > 450) break;
+      if (ch > 650 || txtLen > 550) break;
       bestCard = curr;
       curr = curr.parentElement;
     }
+
+    const hasRichCardText =
+      Boolean(bestCard.querySelector("h1, h2, h3, h4, h5, h6, ul, ol, dl, p")) ||
+      (bestCard.innerText || "").trim().length >= 25;
+
+    if (!hasRichCardText && isBannerLikeImage(imgEl)) {
+      const tightAnchor = imgEl.closest("a[href], button");
+      if (tightAnchor && countCardImages(tightAnchor) <= 1 && (tightAnchor.clientHeight || 0) <= 180) {
+        return tightAnchor;
+      }
+      return imgEl;
+    }
+
     return bestCard;
   }
 
@@ -147,7 +163,7 @@
     });
 
     const ctaKeywords =
-      "top nhà cái|cược|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
+      "top nhà cái|cược|8xbet|fb88|w88|m88|we88|me88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
     root.querySelectorAll("a, button, span").forEach((btnEl) => {
       if (btnEl.getAttribute("data-adshield-scanned") === "true" || btnEl.querySelector("img")) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").trim().toLowerCase();
@@ -221,13 +237,9 @@
       }
     }
 
-    if (linkHref && !linkHref.startsWith("javascript:")) {
-      collectedParts.push(linkHref);
-    }
+    if (linkHref && !linkHref.startsWith("javascript:")) collectedParts.push(linkHref);
 
-    const combinedHint = [rawImgUrl, linkHref, String(adContainer.className || ""), adContainer.id || ""]
-      .filter(Boolean)
-      .join(" ");
+    const combinedHint = [rawImgUrl, linkHref, String(adContainer.className || ""), adContainer.id || ""].filter(Boolean).join(" ");
 
     return {
       ad_id: adContainer.getAttribute("data-ad-id") || `dom_ad_${index}`,
@@ -296,11 +308,8 @@
     const isCompactBanner = !isMicroBadge && containerHeight > 0 && containerHeight < 135;
 
     const overlay = document.createElement("div");
-    overlay.className = isMicroBadge
-      ? "adshield-warning-overlay adshield-overlay-micro"
-      : isCompactBanner
-      ? "adshield-warning-overlay adshield-overlay-compact"
-      : "adshield-warning-overlay";
+    const overlayClass = isMicroBadge ? "adshield-overlay-micro" : isCompactBanner ? "adshield-overlay-compact" : "";
+    overlay.className = `adshield-warning-overlay ${overlayClass}`.trim();
     overlay.setAttribute("data-testid", "adshield__warning--overlay");
 
     const badge = document.createElement("div");
@@ -331,18 +340,14 @@
         targetToBlur.style.filter = "none";
         targetToBlur.classList.remove("adshield-blurred-target");
         targetToBlur.classList.add("adshield-unblurred-target");
-        if (imgElement) {
-          imgElement.style.filter = "none";
-        }
+        if (imgElement) imgElement.style.filter = "none";
         overlay.classList.add("adshield-overlay-minimized");
         toggleButton.textContent = openedBtnLabel;
       } else {
         targetToBlur.style.filter = "blur(10px)";
         targetToBlur.classList.remove("adshield-unblurred-target");
         targetToBlur.classList.add("adshield-blurred-target");
-        if (imgElement) {
-          imgElement.style.filter = "blur(10px)";
-        }
+        if (imgElement) imgElement.style.filter = "blur(10px)";
         overlay.classList.remove("adshield-overlay-minimized");
         toggleButton.textContent = closedBtnLabel;
       }
@@ -469,10 +474,7 @@
     window.removeEventListener("scroll", scheduleScan);
     document.removeEventListener("load", scheduleScan, true);
     document.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
-    document.querySelectorAll(".adshield-blurred-target").forEach((el) => {
-      el.style.filter = "none";
-      el.classList.remove("adshield-blurred-target");
-    });
+    document.querySelectorAll(".adshield-blurred-target").forEach((el) => { el.style.filter = "none"; el.classList.remove("adshield-blurred-target"); });
     document.querySelectorAll("[data-adshield-scanned]").forEach((el) => el.removeAttribute("data-adshield-scanned"));
   }
   window.__adshieldCleanup = cleanupListeners;

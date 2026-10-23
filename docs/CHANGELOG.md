@@ -1,5 +1,15 @@
 # CHANGELOG — Lịch Sử Phiên Bản (`CHANGELOG.md`)
 
+## [`v1.0.1`] — 2026-10-23 (Cải tiến Engine Extension & Khử Trùng Lặp Lớp Che Overlays)
+
+### Fixed & Enhanced (`Sửa lỗi & Nâng cấp`)
+- **`[Extension - Anti-Duplicate Stacked Overlays & Mutex Lock]`**:
+  - Tích hợp khóa bất đồng bộ `isScanning = true/false` trong [`src/features/extension/content.js`](../src/features/extension/content.js) nhằm ngăn ngừa tình trạng quét trùng lặp khi người dùng cuộn chuột (scroll) hoặc DOM kích hoạt `MutationObserver` liên tục.
+  - Thêm kiểm tra `isAlreadyProtected(adContainer)` trực tiếp trong vòng lặp quét để bỏ qua mọi phần tử con hoặc phần tử anh em nằm trong cùng một thẻ bài quảng cáo đã được che.
+  - Tách lọc `.adshield-warning-overlay` khỏi quá trình gom DOM con vào `innerWrap`, loại bỏ triệt để hiện tượng lớp che cũ bị nuốt vào trong wrapper rồi sinh thêm lớp che mới bên ngoài.
+  - Thêm cơ chế tự động dọn dẹp (purge) toàn bộ các lớp overlay thừa và gỡ bỏ `filter: blur` trên tất cả `.adshield-blurred-target` ngay khi người dùng nhấn nút "Nhấp để xem" lần đầu tiên (1 click unblur toàn diện).
+  - Bổ sung nhận diện nút điều hướng có icon (như "Casino Games") trên thanh header và gom nhóm chính xác các thẻ so sánh nhà cái [`data-offer-name`].
+
 ## [`v1.0.0`] — 2026-10-22 (Hoàn thiện trọn gói Giai đoạn 1 → Giai đoạn 4)
 
 ### Added (`Tính năng mới`)

@@ -8,7 +8,10 @@
   - Thêm kiểm tra `isAlreadyProtected(adContainer)` trực tiếp trong vòng lặp quét để bỏ qua mọi phần tử con hoặc phần tử anh em nằm trong cùng một thẻ bài quảng cáo đã được che.
   - Tách lọc `.adshield-warning-overlay` khỏi quá trình gom DOM con vào `innerWrap`, loại bỏ triệt để hiện tượng lớp che cũ bị nuốt vào trong wrapper rồi sinh thêm lớp che mới bên ngoài.
   - Thêm cơ chế tự động dọn dẹp (purge) toàn bộ các lớp overlay thừa và gỡ bỏ `filter: blur` trên tất cả `.adshield-blurred-target` ngay khi người dùng nhấn nút "Nhấp để xem" lần đầu tiên (1 click unblur toàn diện).
-  - Bổ sung nhận diện nút điều hướng có icon (như "Casino Games") trên thanh header và gom nhóm chính xác các thẻ so sánh nhà cái [`data-offer-name`].
+- **`[Multimodal Detector - Full Bookmaker & Betting Offer Coverage]`**:
+  - Bổ sung toàn diện các thương hiệu nhà cái thịnh hành (`1XBET`, `JP88`, `Aw8`, `We88`, `King88`, `Longfu88`, `Dafabet`, `Me88`, `VN88`, v.v.) và thuật ngữ khuyến mãi cờ bạc (`"thưởng nạp"`, `"nạp lần đầu"`, `"thưởng chào mừng"`, `"tiền thưởng gửi tiền"`, `"vòng quay miễn phí"`, `"free spins"`, `"play now"`) vào từ điển phân loại và quy tắc nhận diện mẫu thương hiệu số (`88`, `bet`).
+  - Sửa lỗi trong `content.js`: không nhận diện nhầm logo nhà cái trong thẻ bài thành logo trang chủ; hỗ trợ nhận diện thẻ bài so sánh qua nút CTA `"PLAY NOW"` và loại trừ số thứ tự hạng (`#5`, `#8`, `#9`, `#10`) / icon sao để gom toàn bộ thẻ bài vào khung che mờ.
+  - Tự động gắn nhãn ngữ cảnh trang cá cược nhà cái khi trang web chứa tín hiệu cá cược tổng hợp.
 
 ## [`v1.0.0`] — 2026-10-22 (Hoàn thiện trọn gói Giai đoạn 1 → Giai đoạn 4)
 

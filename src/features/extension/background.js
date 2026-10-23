@@ -16,31 +16,13 @@ const DEFAULT_SETTINGS = {
 
 const predictionCache = new Map();
 
-const tabsStats = new Map();
-
-function createDefaultStats() {
-  return {
-    totalScanned: 0,
-    harmfulBlurred: 0,
-    safeVerified: 0,
-    lastError: null,
-    lastLatencyMs: 0,
-  };
-}
-
-function getTabStats(tabId) {
-  if (!tabId) return createDefaultStats();
-  if (!tabsStats.has(tabId)) {
-    tabsStats.set(tabId, createDefaultStats());
-  }
-  return tabsStats.get(tabId);
-}
-
-function resetTabStats(tabId) {
-  if (!tabId) return;
-  tabsStats.set(tabId, createDefaultStats());
-  updateBadge(0, tabId);
-}
+const tabStats = {
+  totalScanned: 0,
+  harmfulBlurred: 0,
+  safeVerified: 0,
+  lastError: null,
+  lastLatencyMs: 0,
+};
 
 async function getSettings() {
   return new Promise((resolve) => {
@@ -54,40 +36,20 @@ async function getSettings() {
   });
 }
 
-function updateBadge(harmfulCount, tabId) {
+function updateBadge(harmfulCount) {
   if (typeof chrome !== "undefined" && chrome.action && chrome.action.setBadgeText) {
     const text = harmfulCount > 0 ? String(harmfulCount) : "";
-    if (tabId) {
-      chrome.action.setBadgeText({ text, tabId });
-      chrome.action.setBadgeBackgroundColor({ color: "#DC2626", tabId });
-    } else {
-      chrome.action.setBadgeText({ text });
-      chrome.action.setBadgeBackgroundColor({ color: "#DC2626" });
-    }
+    chrome.action.setBadgeText({ text });
+    chrome.action.setBadgeBackgroundColor({ color: "#DC2626" });
   }
 }
 
-function recordTabResult(tabId, result, settings) {
-  const stats = getTabStats(tabId);
-  stats.totalScanned += 1;
-  stats.lastLatencyMs = result.latency_ms || 0;
-  stats.lastError = null;
-  if (result.is_harmful && result.confidence >= settings.confidenceThreshold) {
-    stats.harmfulBlurred += 1;
-    updateBadge(stats.harmfulBlurred, tabId);
-  } else {
-    stats.safeVerified += 1;
-  }
-}
-
-async function callBackendPredict(payload, tabId) {
+async function callBackendPredict(payload) {
   const settings = await getSettings();
   const cacheKey = `${payload.image_url || ""}::${(payload.text || "").trim()}`;
 
   if (predictionCache.has(cacheKey)) {
-    const cachedResult = predictionCache.get(cacheKey);
-    recordTabResult(tabId, cachedResult, settings);
-    return { ok: true, data: cachedResult, cached: true };
+    return { ok: true, data: predictionCache.get(cacheKey), cached: true };
   }
 
   try {
@@ -112,76 +74,55 @@ async function callBackendPredict(payload, tabId) {
 
     const result = await response.json();
     predictionCache.set(cacheKey, result);
-    recordTabResult(tabId, result, settings);
+
+    tabStats.totalScanned += 1;
+    tabStats.lastLatencyMs = result.latency_ms || 0;
+    tabStats.lastError = null;
+    if (result.is_harmful && result.confidence >= settings.confidenceThreshold) {
+      tabStats.harmfulBlurred += 1;
+      updateBadge(tabStats.harmfulBlurred);
+    } else {
+      tabStats.safeVerified += 1;
+    }
 
     return { ok: true, data: result, cached: false };
   } catch (err) {
-    const stats = getTabStats(tabId);
-    stats.lastError = err && err.message ? err.message : "Không thể kết nối Backend API";
-    return { ok: false, error: stats.lastError };
+    tabStats.lastError = err && err.message ? err.message : "Không thể kết nối Backend API";
+    return { ok: false, error: tabStats.lastError };
   }
 }
 
 if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || !message.type) {
       return false;
     }
 
-    const senderTabId = sender && sender.tab ? sender.tab.id : null;
-
-    if (message.type === "ADSHIELD_PAGE_INIT" || message.type === "ADSHIELD_RESET_TAB_STATS") {
-      if (senderTabId) {
-        resetTabStats(senderTabId);
-      }
-      sendResponse({ ok: true });
-      return true;
-    }
-
     if (message.type === "ADSHIELD_PREDICT") {
-      callBackendPredict(message.payload || {}, senderTabId).then(sendResponse);
+      callBackendPredict(message.payload || {}).then(sendResponse);
       return true;
     }
 
     if (message.type === "ADSHIELD_GET_STATS") {
-      const targetTabId = message.tabId || senderTabId;
       getSettings().then((settings) => {
-        sendResponse({ ok: true, stats: getTabStats(targetTabId), settings });
+        sendResponse({ ok: true, stats: tabStats, settings });
       });
       return true;
     }
 
     if (message.type === "ADSHIELD_RESET_STATS") {
       predictionCache.clear();
-      const targetTabId = message.tabId || senderTabId;
-      if (targetTabId) {
-        resetTabStats(targetTabId);
-      } else {
-        tabsStats.clear();
-        updateBadge(0);
-      }
-      sendResponse({ ok: true, stats: getTabStats(targetTabId) });
+      tabStats.totalScanned = 0;
+      tabStats.harmfulBlurred = 0;
+      tabStats.safeVerified = 0;
+      tabStats.lastError = null;
+      updateBadge(0);
+      sendResponse({ ok: true, stats: tabStats });
       return true;
     }
 
     return false;
   });
-}
-
-// Reset tab stats and clear badge whenever the tab navigates to a new page or reloads
-if (typeof chrome !== "undefined" && chrome.tabs) {
-  if (chrome.tabs.onUpdated) {
-    chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-      if (changeInfo.status === "loading" || changeInfo.url) {
-        resetTabStats(tabId);
-      }
-    });
-  }
-  if (chrome.tabs.onRemoved) {
-    chrome.tabs.onRemoved.addListener((tabId) => {
-      tabsStats.delete(tabId);
-    });
-  }
 }
 
 // Automatically re-inject content script into open tabs when Extension is reloaded in chrome://extensions

@@ -67,34 +67,23 @@
       return;
     }
 
-    function fetchStats(tabId) {
-      if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
-        chrome.runtime.sendMessage({ type: "ADSHIELD_GET_STATS", tabId }, (response) => {
-          if (chrome.runtime && chrome.runtime.lastError) {
-            showOnlyState(elEmpty);
-            return;
+    if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ type: "ADSHIELD_GET_STATS" }, (response) => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          showOnlyState(elEmpty);
+          return;
+        }
+        if (response && response.ok) {
+          if (response.settings && response.settings.apiEndpoint) {
+            elInputUrl.value = response.settings.apiEndpoint;
           }
-          if (response && response.ok) {
-            if (response.settings && response.settings.apiEndpoint) {
-              elInputUrl.value = response.settings.apiEndpoint;
-            }
-            renderStats(response.stats);
-          } else {
-            showOnlyState(elEmpty);
-          }
-        });
-      } else {
-        showOnlyState(elEmpty);
-      }
-    }
-
-    if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.query) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const activeTabId = tabs && tabs[0] ? tabs[0].id : null;
-        fetchStats(activeTabId);
+          renderStats(response.stats);
+        } else {
+          showOnlyState(elEmpty);
+        }
       });
     } else {
-      fetchStats(null);
+      showOnlyState(elEmpty);
     }
   }
 

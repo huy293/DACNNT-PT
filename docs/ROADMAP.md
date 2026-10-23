@@ -9,10 +9,10 @@
 
 | Chỉ số | Giá trị hiện tại |
 | :--- | :--- |
-| **Phiên bản hiện tại (Current Version)** | `v1.0.1` |
+| **Phiên bản hiện tại (Current Version)** | `v1.0.0` |
 | **Sprint đang thực thi** | `Sprint 01 — Hoàn thiện Giai đoạn 1 → Giai đoạn 4 (End-to-End)` |
 | **Tổng số tính năng đã hoàn thành** | `10 / 12 tính năng (83.3%)` |
-| **Trạng thái kiểm thử QA (`unittest` / `pytest`)** | `16 / 16 Tests PASS (100%)` |
+| **Trạng thái kiểm thử QA (`unittest` / `pytest`)** | `15 / 15 Tests PASS (100%)` |
 
 ---
 

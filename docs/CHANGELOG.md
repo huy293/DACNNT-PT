@@ -1,14 +1,5 @@
 # CHANGELOG — Lịch Sử Phiên Bản (`CHANGELOG.md`)
 
-## [`v1.0.1`] — 2026-10-23 (Cải tiến cách ly số liệu quét và huy hiệu số đếm theo từng Tab)
-
-### Fixed (`Sửa lỗi`)
-- **`[Extension - Badge & Stats Per-Tab Isolation]`**:
-  - Tách bộ đếm thống kê (`tabStats`) và huy hiệu đỏ (`chrome.action.setBadgeText({ text, tabId })`) độc lập theo từng Tab thay vì dùng biến toàn cục tích lũy.
-  - Tự động xóa/đặt lại số đếm về 0 khi người dùng chuyển hướng trang web mới (`chrome.tabs.onUpdated` với trạng thái `loading` hoặc `url`), giải quyết dứt điểm hiện tượng số quảng cáo bị cộng dồn lên 92 khi duyệt qua nhiều trang.
-  - Thêm thông điệp `ADSHIELD_PAGE_INIT` và `ADSHIELD_RESET_TAB_STATS` khi [`content.js`](../src/features/extension/content.js) khởi động trên trang mới hoặc khi người dùng bấm quét lại.
-  - Cập nhật [`popup.js`](../src/features/extension/popup/popup.js) chỉ truy xuất và hiển thị số liệu của Tab đang hoạt động (`activeTab.id`).
-
 ## [`v1.0.0`] — 2026-10-22 (Hoàn thiện trọn gói Giai đoạn 1 → Giai đoạn 4)
 
 ### Added (`Tính năng mới`)

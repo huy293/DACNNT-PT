@@ -10,17 +10,13 @@
     try { return Boolean(typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id); } catch (_e) { return false; }
   }
 
-  if (isExtensionContextValid()) {
-    try { chrome.runtime.sendMessage({ type: "ADSHIELD_PAGE_INIT" }); } catch (_e) {}
-  }
-
   const DEFAULT_API_URL = "http://127.0.0.1:8000/predict";
   const WARNING_BUTTON_TEXT = "Quảng cáo này có thể chứa nội dung độc hại. Nhấp để xem";
   const HIDE_AGAIN_BUTTON_TEXT = "Ẩn lại quảng cáo độc hại";
   const GAMBLING_CONTEXT_TERMS = [
-    "top nhà cái", "nhà cái", "tỷ lệ kèo", "kèo nhà cái", "soi kèo", "cược ngay", "cá cược", "cá độ",
-    "nổ hũ", "tài xỉu", "casino", "xoilac", "cakhia", "8xbet", "fb88", "w88", "m88", "we88", "me88",
-    "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88",
+    "top nhà cái", "nhà cái", "tỷ lệ kèo", "kèo nhà cái", "soi kèo", "cược ngay",
+    "cá cược", "cá độ", "nổ hũ", "tài xỉu", "casino", "xoilac", "cakhia", "8xbet",
+    "fb88", "w88", "m88", "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88",
   ];
 
   function detectPageGamblingSignals() {
@@ -41,10 +37,7 @@
       if (r.width > 0 && r.width <= 240 && r.height <= 75 && r.top >= 0 && r.top < 75 && r.left >= 0 && r.left < 260) return true;
     } catch (_e) {}
     const parentBox = imgEl.closest("a, button, li, div");
-    if (parentBox) {
-      const txt = (parentBox.innerText || parentBox.textContent || "").trim();
-      if (txt && txt.length <= 35 && SAFE_NAV_PATTERN.test(txt)) return true;
-    }
+    if (parentBox && SAFE_NAV_PATTERN.test((parentBox.innerText || parentBox.textContent || "").trim())) return true;
     const anchor = imgEl.closest("a[href]");
     if (anchor) {
       const href = (anchor.getAttribute("href") || "").trim();
@@ -60,13 +53,10 @@
     const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
     const src = (imgEl.currentSrc || imgEl.src || "").toLowerCase();
     const aspect = h > 0 ? w / h : 1;
-    const inBannerBox = Boolean(
-      imgEl.closest('[class*="banner"], [class*="ads"], [id*="ads"], [class*="qc"], [class*="sponsor"], [class*="bet"], [class*="nhacai"]')
-    );
+    const inBannerBox = Boolean(imgEl.closest('[class*="banner"], [class*="ads"], [id*="ads"], [class*="qc"], [class*="sponsor"], [class*="bet"], [class*="nhacai"]'));
     const isGifBanner = src.includes(".gif") && w >= 40;
     const isWideLeaderboard = w >= 260 && h >= 24 && h <= 140 && aspect >= 2.8;
-    const isThinBookmakerBadge =
-      w >= 40 && w <= 150 && h >= 12 && h <= 42 && aspect >= 2.0 && detectPageGamblingSignals().length > 0;
+    const isThinBookmakerBadge = w >= 40 && w <= 150 && h >= 12 && h <= 42 && aspect >= 2.0 && detectPageGamblingSignals().length > 0;
     return isGifBanner || isWideLeaderboard || isThinBookmakerBadge || (inBannerBox && w >= 45);
   }
 
@@ -83,22 +73,17 @@
     return count;
   }
 
-  function findClosestMediaTextContainer(imgEl) {
-    const explicitCard = imgEl.closest(
-      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], article, li, [class*='rank-item'], [class*='bookmaker'], [class*='top-item'], [class*='list-item']"
+  function isAlreadyProtected(el) {
+    if (!el || !el.closest) return false;
+    return Boolean(
+      el.closest(".adshield-card-wrapper, .adshield-warning-overlay, .adshield-safe-pill, [data-adshield-verdict]") ||
+      el.getAttribute("data-adshield-scanned") === "true"
     );
-    if (explicitCard && countCardImages(explicitCard) <= 1 && (explicitCard.clientHeight || 0) <= 750) {
-      return explicitCard;
-    }
+  }
 
-    const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || 0;
-    const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || 0;
-    const aspect = h > 0 ? w / h : 1;
-    if (h > 0 && h <= 42 && aspect >= 2.0) {
-      const tightAnchor = imgEl.closest("a[href], button");
-      if (tightAnchor && countCardImages(tightAnchor) <= 1) return tightAnchor;
-      return imgEl;
-    }
+  function findClosestMediaTextContainer(imgEl) {
+    const explicitCard = imgEl.closest("[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card']");
+    if (explicitCard) return explicitCard;
 
     let bestCard = imgEl;
     let curr = imgEl.parentElement;
@@ -108,23 +93,23 @@
       if (countCardImages(curr) > 1) break;
       const ch = curr.clientHeight || 0;
       const txtLen = (curr.innerText || curr.textContent || "").trim().length;
-      if (ch > 650 || txtLen > 550) break;
+      if (ch > 750 || txtLen > 950) break;
       bestCard = curr;
       curr = curr.parentElement;
     }
 
-    const hasRichCardText =
-      Boolean(bestCard.querySelector("h1, h2, h3, h4, h5, h6, ul, ol, dl, p")) ||
-      (bestCard.innerText || "").trim().length >= 25;
+    const bestText = (bestCard.innerText || bestCard.textContent || "").trim();
+    if (bestCard !== imgEl && bestText.length >= 25) {
+      return bestCard;
+    }
 
-    if (!hasRichCardText && isBannerLikeImage(imgEl)) {
+    if (isBannerLikeImage(imgEl)) {
       const tightAnchor = imgEl.closest("a[href], button");
       if (tightAnchor && countCardImages(tightAnchor) <= 1 && (tightAnchor.clientHeight || 0) <= 180) {
         return tightAnchor;
       }
       return imgEl;
     }
-
     return bestCard;
   }
 
@@ -155,27 +140,32 @@
   }
 
   function findAdCandidates(root = document) {
-    const explicitSelector =
-      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [aria-label*='Sponsored'], [aria-label*='Được tài trợ']";
-    const candidates = new Set();
-    root.querySelectorAll(explicitSelector).forEach((el) => {
-      if (el.getAttribute("data-adshield-scanned") !== "true") candidates.add(el);
+    const explicitSelectors = [
+      "[data-ad-card]", ".ad-card", ".sponsored-post", '[data-testid*="ad-card"]',
+      '[aria-label*="Sponsored"]', '[aria-label*="Được tài trợ"]',
+    ];
+    const candidateSet = new Set();
+
+    explicitSelectors.forEach((sel) => {
+      root.querySelectorAll(sel).forEach((el) => {
+        if (!isAlreadyProtected(el)) candidateSet.add(el);
+      });
     });
 
     const ctaKeywords =
-      "top nhà cái|cược|8xbet|fb88|w88|m88|we88|me88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
+      "top nhà cái|cược|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
     root.querySelectorAll("a, button, span").forEach((btnEl) => {
-      if (btnEl.getAttribute("data-adshield-scanned") === "true" || btnEl.querySelector("img")) return;
+      if (isAlreadyProtected(btnEl) || btnEl.querySelector("img")) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").trim().toLowerCase();
       if (txt.length >= 4 && txt.length <= 65 && ctaKeywords.some((kw) => txt.includes(kw))) {
-        candidates.add(btnEl);
+        candidateSet.add(btnEl);
       }
     });
 
     root.querySelectorAll("img").forEach((imgEl) => {
-      if (imgEl.getAttribute("data-adshield-scanned") === "true" || isSafeNavigationOrLogo(imgEl)) return;
+      if (isAlreadyProtected(imgEl) || isSafeNavigationOrLogo(imgEl)) return;
       const container = findClosestMediaTextContainer(imgEl);
-      if (!container || container.getAttribute("data-adshield-scanned") === "true") return;
+      if (!container || isAlreadyProtected(container)) return;
       const width = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || container.clientWidth || 0;
       const containerText = (container.innerText || container.textContent || "").replace(/\s+/g, " ").trim();
       const hasLocalOrSiblingText =
@@ -183,11 +173,12 @@
         Boolean(container.querySelector("p, span, h1, h2, h3, h4, h5, h6, figcaption, a, button, div")) ||
         extractAdjacentSiblingText(imgEl).length > 0;
       if ((hasLocalOrSiblingText && (width >= 48 || width === 0)) || isBannerLikeImage(imgEl)) {
-        candidates.add(container);
+        candidateSet.add(container);
       }
     });
 
-    return Array.from(candidates);
+    const list = Array.from(candidateSet).filter((el) => el.isConnected && !isAlreadyProtected(el));
+    return list.filter((el) => !list.some((other) => other !== el && other.contains(el)));
   }
 
   function extractMultimodalAdData(adContainer, index) {
@@ -237,9 +228,13 @@
       }
     }
 
-    if (linkHref && !linkHref.startsWith("javascript:")) collectedParts.push(linkHref);
+    if (linkHref && !linkHref.startsWith("javascript:")) {
+      collectedParts.push(linkHref);
+    }
 
-    const combinedHint = [rawImgUrl, linkHref, String(adContainer.className || ""), adContainer.id || ""].filter(Boolean).join(" ");
+    const combinedHint = [rawImgUrl, linkHref, String(adContainer.className || ""), adContainer.id || ""]
+      .filter(Boolean)
+      .join(" ");
 
     return {
       ad_id: adContainer.getAttribute("data-ad-id") || `dom_ad_${index}`,
@@ -253,6 +248,9 @@
    * Apply `element.style.filter = "blur(10px)"` and inject the interactive warning button.
    */
   function applyHarmfulAdProtection(adContainer, imgElement, prediction) {
+    if (!adContainer || !adContainer.isConnected) return;
+    if (adContainer.closest(".adshield-warning-overlay")) return;
+
     let hostContainer = adContainer;
     if (hostContainer.tagName === "IMG" && hostContainer.parentElement) {
       const imgWrapper = document.createElement("div");
@@ -266,12 +264,13 @@
     }
     hostContainer.classList.add("adshield-card-wrapper");
     hostContainer.setAttribute("data-adshield-verdict", "harmful");
+    hostContainer.setAttribute("data-adshield-scanned", "true");
     if (imgElement) {
       imgElement.setAttribute("data-adshield-scanned", "true");
     }
+    hostContainer.querySelectorAll("*").forEach((desc) => desc.setAttribute("data-adshield-scanned", "true"));
 
-    let targetToBlur =
-      hostContainer.querySelector("[data-ad-media-body]") || imgElement;
+    let targetToBlur = hostContainer.querySelector("[data-ad-media-body]") || imgElement;
     if (!targetToBlur) {
       const innerWrap = document.createElement("div");
       innerWrap.setAttribute("data-ad-media-body", "true");
@@ -289,27 +288,17 @@
       imgElement.style.filter = "blur(10px)";
     }
 
-    const existingOverlay = hostContainer.querySelector(".adshield-warning-overlay");
-    if (existingOverlay) {
-      existingOverlay.remove();
-    }
+    hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
 
     const confidencePct = Math.round((Number(prediction.confidence) || 0.89) * 100);
-    const reasonText =
-      Array.isArray(prediction.reasons) && prediction.reasons.length > 0
-        ? prediction.reasons[0]
-        : "Mô hình CLIP + Classifier phát hiện dấu hiệu quảng cáo gây hại.";
-
-    const containerWidth =
-      hostContainer.clientWidth || (imgElement ? imgElement.clientWidth || imgElement.width : 0) || 0;
-    const containerHeight =
-      hostContainer.clientHeight || (imgElement ? imgElement.clientHeight || imgElement.height : 0) || 0;
+    const reasonText = (Array.isArray(prediction.reasons) && prediction.reasons[0]) || "Mô hình CLIP + Classifier phát hiện dấu hiệu quảng cáo gây hại.";
+    const containerWidth = hostContainer.clientWidth || (imgElement ? imgElement.clientWidth || imgElement.width : 0) || 0;
+    const containerHeight = hostContainer.clientHeight || (imgElement ? imgElement.clientHeight || imgElement.height : 0) || 0;
     const isMicroBadge = (containerWidth > 0 && containerWidth < 220) || (containerHeight > 0 && containerHeight < 48);
     const isCompactBanner = !isMicroBadge && containerHeight > 0 && containerHeight < 135;
 
     const overlay = document.createElement("div");
-    const overlayClass = isMicroBadge ? "adshield-overlay-micro" : isCompactBanner ? "adshield-overlay-compact" : "";
-    overlay.className = `adshield-warning-overlay ${overlayClass}`.trim();
+    overlay.className = isMicroBadge ? "adshield-warning-overlay adshield-overlay-micro" : isCompactBanner ? "adshield-warning-overlay adshield-overlay-compact" : "adshield-warning-overlay";
     overlay.setAttribute("data-testid", "adshield__warning--overlay");
 
     const badge = document.createElement("div");
@@ -336,21 +325,12 @@
       event.stopPropagation();
       isRevealed = !isRevealed;
 
-      if (isRevealed) {
-        targetToBlur.style.filter = "none";
-        targetToBlur.classList.remove("adshield-blurred-target");
-        targetToBlur.classList.add("adshield-unblurred-target");
-        if (imgElement) imgElement.style.filter = "none";
-        overlay.classList.add("adshield-overlay-minimized");
-        toggleButton.textContent = openedBtnLabel;
-      } else {
-        targetToBlur.style.filter = "blur(10px)";
-        targetToBlur.classList.remove("adshield-unblurred-target");
-        targetToBlur.classList.add("adshield-blurred-target");
-        if (imgElement) imgElement.style.filter = "blur(10px)";
-        overlay.classList.remove("adshield-overlay-minimized");
-        toggleButton.textContent = closedBtnLabel;
-      }
+      targetToBlur.style.filter = isRevealed ? "none" : "blur(10px)";
+      targetToBlur.classList.toggle("adshield-blurred-target", !isRevealed);
+      targetToBlur.classList.toggle("adshield-unblurred-target", isRevealed);
+      if (imgElement) imgElement.style.filter = isRevealed ? "none" : "blur(10px)";
+      overlay.classList.toggle("adshield-overlay-minimized", isRevealed);
+      toggleButton.textContent = isRevealed ? openedBtnLabel : closedBtnLabel;
     });
 
     overlay.appendChild(badge);
@@ -410,9 +390,6 @@
 
   async function scanPageAds(options = {}) {
     if (options.forceRescan) {
-      if (isExtensionContextValid()) {
-        try { chrome.runtime.sendMessage({ type: "ADSHIELD_RESET_TAB_STATS" }); } catch (_e) {}
-      }
       document.querySelectorAll("[data-adshield-scanned]").forEach((el) => {
         el.removeAttribute("data-adshield-scanned");
       });
@@ -474,7 +451,10 @@
     window.removeEventListener("scroll", scheduleScan);
     document.removeEventListener("load", scheduleScan, true);
     document.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
-    document.querySelectorAll(".adshield-blurred-target").forEach((el) => { el.style.filter = "none"; el.classList.remove("adshield-blurred-target"); });
+    document.querySelectorAll(".adshield-blurred-target").forEach((el) => {
+      el.style.filter = "none";
+      el.classList.remove("adshield-blurred-target");
+    });
     document.querySelectorAll("[data-adshield-scanned]").forEach((el) => el.removeAttribute("data-adshield-scanned"));
   }
   window.__adshieldCleanup = cleanupListeners;

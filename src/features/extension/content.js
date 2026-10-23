@@ -24,7 +24,7 @@
       .slice(0, 60)
       .map((el) => (el.innerText || el.textContent || "").trim())
       .join(" ");
-    const pageSample = `${document.title || ""} ${window.location.hostname || ""} ${navSample}`.toLowerCase();
+    const pageSample = `${document.title || ""} ${window.location.href || ""} ${window.location.pathname || ""} ${navSample}`.toLowerCase();
     return GAMBLING_CONTEXT_TERMS.filter((term) => pageSample.includes(term));
   }
 
@@ -162,7 +162,7 @@
     });
 
     const ctaKeywords =
-      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|we88|king88|longfu88|dafabet|me88|vn88".split("|");
+      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|jackpot88|we88|king88|longfu88|dafabet|me88|vn88".split("|");
     root.querySelectorAll("a, button, span, li, div").forEach((btnEl) => {
       if (isAlreadyProtected(btnEl)) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -209,6 +209,16 @@
 
     const selfText = (adContainer.innerText || adContainer.textContent || "").replace(/\s+/g, " ").trim();
     if (selfText && selfText.length >= 4 && selfText.length <= 360) collectedParts.push(selfText);
+
+    const attrHints = [
+      adContainer.getAttribute("data-offer-name"), adContainer.getAttribute("data-brand"),
+      adContainer.getAttribute("title"), adContainer.getAttribute("aria-label"),
+    ].filter(Boolean);
+    adContainer.querySelectorAll("[data-offer-name], [data-brand]").forEach((child) => {
+      const don = child.getAttribute("data-offer-name") || child.getAttribute("data-brand");
+      if (don && !attrHints.includes(don)) attrHints.push(don);
+    });
+    attrHints.forEach((h) => { if (!collectedParts.includes(h)) collectedParts.push(h); });
 
     adContainer.querySelectorAll("h1, h2, h3, h4, h5, h6, p, span, figcaption, a, button, strong, b, div, [data-ad-text]").forEach((node) => {
       if (node.closest(".adshield-warning-overlay")) return;

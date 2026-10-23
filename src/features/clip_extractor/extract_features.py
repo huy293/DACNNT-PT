@@ -33,7 +33,7 @@ HARMFUL_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
         "new88", "789bet", "f8bet", "shbet", "go88", "sunwin", "rikvip", "188bet", "fun88", "bk8",
         "ggbet", "deposit bonus", "first deposit", "welcome bonus", "betting sites", "esports betting",
         "bet on", "free bet", "sportsbook", "bookmaker",
-        "1xbet", "aw8", "jp88", "we88", "king88", "longfu88", "dafabet", "me88", "eu9", "vn88",
+        "1xbet", "aw8", "jp88", "jackpot88", "we88", "king88", "longfu88", "dafabet", "me88", "eu9", "vn88",
         "sin88", "may88", "debet", "oxbet", "red88", "ta88", "sv88", "five88", "zbet", "dabet",
         "thưởng nạp", "nạp lần đầu", "thưởng chào mừng", "tiền thưởng gửi tiền", "thưởng gửi tiền",
         "vòng quay miễn phí", "vòng quay", "free spins", "vòng cược", "tặng tiền cược", "tiền cược",
@@ -90,7 +90,7 @@ def extract_visual_embedding_32d(
         "casino", "scam", "hate", "meme_harm", "nha_cai", "nha-cai", "nhacai",
         "thuoc_gia", "vay_nong", "gambling", "danger_banner", "#dc2626", "#ef4444", "#ff0000",
         "8xbet", "fb88", "w88", "m88", "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88", "188bet", "bk8",
-        "1xbet", "aw8", "jp88", "we88", "king88", "longfu88", "dafabet", "me88", "vn88",
+        "1xbet", "aw8", "jp88", "jackpot88", "we88", "king88", "longfu88", "dafabet", "me88", "vn88",
     )
     safe_visual_cues = (
         "khoa_hoc", "ca_phe", "giay", "laptop", "du_lich", "sach",

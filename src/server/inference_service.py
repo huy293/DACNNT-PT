@@ -40,7 +40,7 @@ CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
             "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "go88", "sunwin", "rikvip",
             "188bet", "fun88", "bk8", "ggbet", "deposit bonus", "first deposit", "welcome bonus",
             "betting sites", "esports betting", "bet on", "free bet", "sportsbook", "bookmaker",
-            "1xbet", "aw8", "jp88", "we88", "king88", "longfu88", "dafabet", "me88", "eu9", "vn88",
+            "1xbet", "aw8", "jp88", "jackpot88", "we88", "king88", "longfu88", "dafabet", "me88", "eu9", "vn88",
             "sin88", "may88", "debet", "oxbet", "red88", "ta88", "sv88", "five88", "zbet", "dabet",
             "thưởng nạp", "nạp lần đầu", "thưởng chào mừng", "tiền thưởng gửi tiền", "thưởng gửi tiền",
             "vòng quay miễn phí", "vòng quay", "free spins", "vòng cược", "tặng tiền cược", "tiền cược",
@@ -219,7 +219,7 @@ class HarmfulAdInferenceService:
                 "#dc2626", "#ef4444", "casino", "scam", "hate", "thuoc_gia", "vay_nong",
                 "nha_cai", "nha-cai", "nhacai", "8xbet", "fb88", "w88", "m88", "kubet",
                 "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88", "188bet", "bk8",
-                "1xbet", "aw8", "jp88", "we88", "king88", "longfu88", "dafabet", "me88", "vn88",
+                "1xbet", "aw8", "jp88", "jackpot88", "we88", "king88", "longfu88", "dafabet", "me88", "vn88",
             )
             if cue in hint_lower
         )
@@ -232,6 +232,14 @@ class HarmfulAdInferenceService:
         if has_bookmaker_pattern and (
             hype_hits >= 1 or any(t in lower_text for t in ("vnd", "play now", "thưởng", "nạp", "tiền", "gửi"))
         ):
+            primary_hits += 2
+
+        has_deposit_bonus_pattern = bool(
+            re.search(r"\d{2,4}\s*%", lower_text)
+            and any(c in lower_text for c in ("vnd", "vnđ", "up to", "lên tới", "lên đến", "tiền thưởng", "thưởng"))
+            and any(cta in lower_text for cta in ("play now", "chơi ngay", "cược ngay", "đặt cược", "nhận ngay", "đăng ký"))
+        )
+        if has_deposit_bonus_pattern:
             primary_hits += 2
 
         if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):

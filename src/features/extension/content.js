@@ -160,10 +160,10 @@
     });
 
     const ctaKeywords =
-      "top nhà cái|cược|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
-    root.querySelectorAll("a, button, span").forEach((btnEl) => {
-      if (isAlreadyProtected(btnEl) || btnEl.querySelector("img")) return;
-      const txt = (btnEl.innerText || btnEl.textContent || "").trim().toLowerCase();
+      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
+    root.querySelectorAll("a, button, span, li").forEach((btnEl) => {
+      if (isAlreadyProtected(btnEl) || countCardImages(btnEl) > 0) return;
+      const txt = (btnEl.innerText || btnEl.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
       if (txt.length >= 4 && txt.length <= 65 && ctaKeywords.some((kw) => txt.includes(kw))) {
         candidateSet.add(btnEl);
       }

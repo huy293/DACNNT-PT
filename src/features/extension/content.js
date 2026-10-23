@@ -80,7 +80,7 @@
   function isAlreadyProtected(el) {
     if (!el || !el.closest) return false;
     return Boolean(
-      el.closest(".adshield-card-wrapper, .adshield-warning-overlay, .adshield-safe-pill, [data-adshield-verdict]") ||
+      el.closest(".adshield-card-wrapper, .adshield-warning-overlay, .adshield-safe-pill, [data-adshield-verdict], [data-adshield-scanned='true']") ||
       el.getAttribute("data-adshield-scanned") === "true"
     );
   }
@@ -281,9 +281,10 @@
     if (!targetToBlur) {
       const innerWrap = document.createElement("div");
       innerWrap.setAttribute("data-ad-media-body", "true");
-      while (hostContainer.firstChild) {
-        innerWrap.appendChild(hostContainer.firstChild);
-      }
+      const children = Array.from(hostContainer.childNodes).filter(
+        (node) => !node.classList || !node.classList.contains("adshield-warning-overlay")
+      );
+      children.forEach((child) => innerWrap.appendChild(child));
       hostContainer.appendChild(innerWrap);
       targetToBlur = innerWrap;
     }
@@ -338,6 +339,17 @@
       if (imgElement) imgElement.style.filter = isRevealed ? "none" : "blur(10px)";
       overlay.classList.toggle("adshield-overlay-minimized", isRevealed);
       toggleButton.textContent = isRevealed ? openedBtnLabel : closedBtnLabel;
+
+      if (isRevealed) {
+        hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((ov) => {
+          if (ov !== overlay) ov.remove();
+        });
+        hostContainer.querySelectorAll(".adshield-blurred-target").forEach((bt) => {
+          bt.style.filter = "none";
+          bt.classList.remove("adshield-blurred-target");
+          bt.classList.add("adshield-unblurred-target");
+        });
+      }
     });
 
     overlay.appendChild(badge);
@@ -383,11 +395,7 @@
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ad_id: payload.ad_id,
-          text: payload.text,
-          image_url: payload.image_url,
-        }),
+        body: JSON.stringify({ ad_id: payload.ad_id, text: payload.text, image_url: payload.image_url }),
       });
       return res.ok ? await res.json() : null;
     } catch (_err) {
@@ -395,47 +403,49 @@
     }
   }
 
+  let isScanning = false;
+
   async function scanPageAds(options = {}) {
-    if (options.forceRescan) {
-      document.querySelectorAll("[data-adshield-scanned]").forEach((el) => {
-        el.removeAttribute("data-adshield-scanned");
-      });
-    }
-
-    const candidates = findAdCandidates(document);
-    const summary = { totalScanned: 0, harmfulBlurred: 0, safeVerified: 0 };
-
-    for (let i = 0; i < candidates.length; i += 1) {
-      const adContainer = candidates[i];
-      if (!adContainer || !adContainer.isConnected) continue;
-      const adData = extractMultimodalAdData(adContainer, i + 1);
-      if (!adData.text && !adData.image_url) continue;
-
-      adContainer.setAttribute("data-adshield-scanned", "true");
-      const prediction = await requestPrediction(adData, options.apiUrl);
-      if (!prediction) {
-        adContainer.removeAttribute("data-adshield-scanned");
-        continue;
+    if (isScanning) return { totalScanned: 0, harmfulBlurred: 0, safeVerified: 0 };
+    isScanning = true;
+    try {
+      if (options.forceRescan) {
+        document.querySelectorAll("[data-adshield-scanned]").forEach((el) => el.removeAttribute("data-adshield-scanned"));
       }
 
-      summary.totalScanned += 1;
-      if (prediction.is_harmful === true) {
-        applyHarmfulAdProtection(adContainer, adData.imgElement, prediction);
-        summary.harmfulBlurred += 1;
-      } else {
-        markSafeAd(adContainer, prediction);
-        summary.safeVerified += 1;
-      }
-    }
+      const candidates = findAdCandidates(document);
+      const summary = { totalScanned: 0, harmfulBlurred: 0, safeVerified: 0 };
 
-    return summary;
+      for (let i = 0; i < candidates.length; i += 1) {
+        const adContainer = candidates[i];
+        if (!adContainer || !adContainer.isConnected || isAlreadyProtected(adContainer)) continue;
+        const adData = extractMultimodalAdData(adContainer, i + 1);
+        if (!adData.text && !adData.image_url) continue;
+
+        adContainer.setAttribute("data-adshield-scanned", "true");
+        const prediction = await requestPrediction(adData, options.apiUrl);
+        if (!prediction) {
+          adContainer.removeAttribute("data-adshield-scanned");
+          continue;
+        }
+
+        summary.totalScanned += 1;
+        if (prediction.is_harmful === true) {
+          applyHarmfulAdProtection(adContainer, adData.imgElement, prediction);
+          summary.harmfulBlurred += 1;
+        } else {
+          markSafeAd(adContainer, prediction);
+          summary.safeVerified += 1;
+        }
+      }
+
+      return summary;
+    } finally {
+      isScanning = false;
+    }
   }
 
-  window.AdShieldContentScanner = {
-    scanPageAds,
-    applyHarmfulAdProtection,
-    WARNING_BUTTON_TEXT,
-  };
+  window.AdShieldContentScanner = { scanPageAds, applyHarmfulAdProtection, WARNING_BUTTON_TEXT };
 
   if (isExtensionContextValid()) {
     try {
@@ -449,10 +459,10 @@
     } catch (_e) {}
   }
 
-  let debounceTimer = null;
-  let observer = null;
+  let debounceTimer = null, observer = null;
 
   function cleanupListeners() {
+    isScanning = false;
     if (debounceTimer) clearTimeout(debounceTimer);
     if (observer) observer.disconnect();
     window.removeEventListener("scroll", scheduleScan);

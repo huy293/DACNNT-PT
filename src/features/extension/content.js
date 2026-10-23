@@ -36,13 +36,15 @@
       const r = imgEl.getBoundingClientRect();
       if (r.width > 0 && r.width <= 240 && r.height <= 75 && r.top >= 0 && r.top < 75 && r.left >= 0 && r.left < 260) return true;
     } catch (_e) {}
-    const parentBox = imgEl.closest("a, button, li, div");
-    if (parentBox && SAFE_NAV_PATTERN.test((parentBox.innerText || parentBox.textContent || "").trim())) return true;
-    const anchor = imgEl.closest("a[href]");
-    if (anchor) {
-      const href = (anchor.getAttribute("href") || "").trim();
-      const cls = `${imgEl.className || ""} ${anchor.className || ""} ${imgEl.alt || ""}`.toLowerCase();
-      if (href === "/" || cls.includes("logo")) return true;
+    const parentBox = imgEl.closest("header, nav, .header, .menu, .navbar, .topbar");
+    if (parentBox) {
+      if (SAFE_NAV_PATTERN.test((parentBox.innerText || parentBox.textContent || "").trim())) return true;
+      const anchor = imgEl.closest("a[href]");
+      if (anchor) {
+        const href = (anchor.getAttribute("href") || "").trim();
+        const cls = `${imgEl.className || ""} ${anchor.className || ""} ${imgEl.alt || ""}`.toLowerCase();
+        if (href === "/" || href === `${window.location.origin}/` || cls.includes("site-logo") || cls.includes("brand-logo")) return true;
+      }
     }
     return false;
   }
@@ -68,11 +70,17 @@
       const im = imgs[i];
       const cls = String(im.className || "").toLowerCase();
       const alt = String(im.alt || "").toLowerCase();
-      if (cls.includes("star") || alt.includes("star") || cls.includes("icon") || cls.includes("badge") || cls.includes("flag")) continue;
+      const src = String(im.currentSrc || im.src || "").toLowerCase();
+      if (
+        cls.includes("star") || alt.includes("star") || src.includes("star") ||
+        cls.includes("icon") || alt.includes("icon") || src.includes("icon") ||
+        cls.includes("badge") || alt.includes("badge") || src.includes("badge") ||
+        cls.includes("rank") || alt.includes("rank") || cls.includes("flag") || alt.includes("flag")
+      ) continue;
       const w = im.naturalWidth || im.width || im.clientWidth || 0;
       const h = im.naturalHeight || im.height || im.clientHeight || 0;
-      if (h > 0 && h <= 28) continue;
-      if ((w === 0 && h === 0) || w >= 48 || h >= 48) count += 1;
+      if (h > 0 && h <= 32) continue;
+      if ((w === 0 && h === 0) || w >= 44 || h >= 44) count += 1;
     }
     return count;
   }
@@ -87,18 +95,16 @@
 
   function findClosestMediaTextContainer(imgEl) {
     const explicitCard = imgEl.closest(
-      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [data-offer-name], [data-deal-id], [class*='ranking-item'], [class*='offer-item']"
+      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [data-offer-name], [data-deal-id], [class*='ranking'], [class*='offer'], [class*='casino'], [class*='bookmaker'], [class*='review-item'], [class*='item-casino']"
     );
     if (explicitCard) return explicitCard;
 
-    let bestCard = imgEl;
-    let curr = imgEl.parentElement;
-    for (let depth = 0; depth < 5 && curr && curr !== document.body; depth += 1) {
+    let bestCard = imgEl, curr = imgEl.parentElement;
+    for (let depth = 0; depth < 6 && curr && curr !== document.body; depth += 1) {
       const cls = String(curr.className || "").toLowerCase();
       if (["MAIN", "HEADER", "FOOTER", "NAV"].includes(curr.tagName) || /header|navbar|menu|topbar/.test(cls)) break;
       if (countCardImages(curr) > 1) break;
-      const ch = curr.clientHeight || 0;
-      const txtLen = (curr.innerText || curr.textContent || "").trim().length;
+      const ch = curr.clientHeight || 0, txtLen = (curr.innerText || curr.textContent || "").trim().length;
       if (ch > 750 || txtLen > 950) break;
       bestCard = curr;
       if (curr.hasAttribute("data-offer-name") || (cls.includes("offer") && cls.includes("item"))) return curr;
@@ -106,15 +112,11 @@
     }
 
     const bestText = (bestCard.innerText || bestCard.textContent || "").trim();
-    if (bestCard !== imgEl && bestText.length >= 25) {
-      return bestCard;
-    }
+    if (bestCard !== imgEl && bestText.length >= 20) return bestCard;
 
     if (isBannerLikeImage(imgEl)) {
       const tightAnchor = imgEl.closest("a[href], button");
-      if (tightAnchor && countCardImages(tightAnchor) <= 1 && (tightAnchor.clientHeight || 0) <= 180) {
-        return tightAnchor;
-      }
+      if (tightAnchor && countCardImages(tightAnchor) <= 1 && (tightAnchor.clientHeight || 0) <= 180) return tightAnchor;
       return imgEl;
     }
     return bestCard;
@@ -160,12 +162,19 @@
     });
 
     const ctaKeywords =
-      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu".split("|");
-    root.querySelectorAll("a, button, span, li").forEach((btnEl) => {
-      if (isAlreadyProtected(btnEl) || countCardImages(btnEl) > 0) return;
+      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|we88|king88|longfu88|dafabet|me88|vn88".split("|");
+    root.querySelectorAll("a, button, span, li, div").forEach((btnEl) => {
+      if (isAlreadyProtected(btnEl)) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
       if (txt.length >= 4 && txt.length <= 65 && ctaKeywords.some((kw) => txt.includes(kw))) {
-        candidateSet.add(btnEl);
+        const fullCard = btnEl.closest(
+          "[data-offer-name], [class*='ranking'], [class*='offer'], [class*='casino'], [class*='card'], [class*='item'], tr, li, article"
+        );
+        if (fullCard && fullCard !== document.body && (fullCard.clientHeight || 0) <= 750 && !isAlreadyProtected(fullCard)) {
+          candidateSet.add(fullCard);
+        } else if (countCardImages(btnEl) === 0) {
+          candidateSet.add(btnEl);
+        }
       }
     });
 
@@ -179,7 +188,7 @@
         containerText.length >= 4 ||
         Boolean(container.querySelector("p, span, h1, h2, h3, h4, h5, h6, figcaption, a, button, div")) ||
         extractAdjacentSiblingText(imgEl).length > 0;
-      if ((hasLocalOrSiblingText && (width >= 48 || width === 0)) || isBannerLikeImage(imgEl)) {
+      if ((hasLocalOrSiblingText && (width >= 44 || width === 0)) || isBannerLikeImage(imgEl)) {
         candidateSet.add(container);
       }
     });
@@ -194,26 +203,17 @@
       ? imgElement.currentSrc || imgElement.src || imgElement.getAttribute("data-src") || ""
       : adContainer.getAttribute("data-image-hint") || "";
 
-    const anchorEl =
-      adContainer.tagName === "A"
-        ? adContainer
-        : adContainer.querySelector("a[href]") || adContainer.closest("a[href]");
+    const anchorEl = adContainer.tagName === "A" ? adContainer : adContainer.querySelector("a[href]") || adContainer.closest("a[href]");
     const linkHref = anchorEl ? anchorEl.getAttribute("href") || anchorEl.href || "" : "";
-
-    const textNodes = adContainer.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, span, figcaption, a, button, strong, b, div, [data-ad-text]"
-    );
     const collectedParts = [];
 
     const selfText = (adContainer.innerText || adContainer.textContent || "").replace(/\s+/g, " ").trim();
     if (selfText && selfText.length >= 4 && selfText.length <= 360) collectedParts.push(selfText);
 
-    textNodes.forEach((node) => {
+    adContainer.querySelectorAll("h1, h2, h3, h4, h5, h6, p, span, figcaption, a, button, strong, b, div, [data-ad-text]").forEach((node) => {
       if (node.closest(".adshield-warning-overlay")) return;
       const txt = (node.innerText || node.textContent || "").replace(/\s+/g, " ").trim();
-      if (txt && txt.length >= 3 && txt.length <= 280 && !collectedParts.includes(txt)) {
-        collectedParts.push(txt);
-      }
+      if (txt && txt.length >= 3 && txt.length <= 280 && !collectedParts.includes(txt)) collectedParts.push(txt);
     });
 
     if (imgElement) {
@@ -221,28 +221,17 @@
       if (altAndTitle && !collectedParts.includes(altAndTitle)) collectedParts.push(altAndTitle);
     }
 
-    const bannerMode = Boolean(imgElement && isBannerLikeImage(imgElement));
-    if (!bannerMode) {
-      extractAdjacentSiblingText(imgElement || adContainer).forEach((st) => {
-        if (!collectedParts.includes(st)) collectedParts.push(st);
-      });
-    } else {
-      const pageSignals = detectPageGamblingSignals();
-      if (pageSignals.length > 0) {
-        collectedParts.push(
-          `Banner quảng cáo nhà cái cá cược trực tuyến (${pageSignals.slice(0, 4).join(", ")})`
-        );
-      }
+    extractAdjacentSiblingText(imgElement || adContainer).forEach((st) => {
+      if (!collectedParts.includes(st)) collectedParts.push(st);
+    });
+
+    const pageSignals = detectPageGamblingSignals();
+    if (pageSignals.length > 0) {
+      collectedParts.push(`Ngữ cảnh trang web cá cược: ${pageSignals.slice(0, 4).join(", ")}`);
     }
+    if (linkHref && !linkHref.startsWith("javascript:")) collectedParts.push(linkHref);
 
-    if (linkHref && !linkHref.startsWith("javascript:")) {
-      collectedParts.push(linkHref);
-    }
-
-    const combinedHint = [rawImgUrl, linkHref, String(adContainer.className || ""), adContainer.id || ""]
-      .filter(Boolean)
-      .join(" ");
-
+    const combinedHint = [rawImgUrl, linkHref, String(adContainer.className || ""), adContainer.id || ""].filter(Boolean).join(" ");
     return {
       ad_id: adContainer.getAttribute("data-ad-id") || `dom_ad_${index}`,
       image_url: rawImgUrl || combinedHint,

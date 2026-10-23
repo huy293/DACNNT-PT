@@ -33,6 +33,11 @@ HARMFUL_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
         "new88", "789bet", "f8bet", "shbet", "go88", "sunwin", "rikvip", "188bet", "fun88", "bk8",
         "ggbet", "deposit bonus", "first deposit", "welcome bonus", "betting sites", "esports betting",
         "bet on", "free bet", "sportsbook", "bookmaker",
+        "1xbet", "aw8", "jp88", "we88", "king88", "longfu88", "dafabet", "me88", "eu9", "vn88",
+        "sin88", "may88", "debet", "oxbet", "red88", "ta88", "sv88", "five88", "zbet", "dabet",
+        "thưởng nạp", "nạp lần đầu", "thưởng chào mừng", "tiền thưởng gửi tiền", "thưởng gửi tiền",
+        "vòng quay miễn phí", "vòng quay", "free spins", "vòng cược", "tặng tiền cược", "tiền cược",
+        "cược miễn phí", "game bài", "bắn cá đổi thưởng", "baccarat", "roulette", "slot game", "đá gà",
     ),
     ("vay nóng", "không thế chấp", "không thẩm định", "giải ngân", "bao nợ xấu", "lãi suất 0%", "x100 tài khoản", "tiền ảo x100"),
     ("thần dược", "chữa khỏi dứt điểm", "trị dứt điểm", "chữa ung thư", "bệnh viện giấu kín", "giảm cân cấp tốc", "cam kết hoàn tiền 200%"),
@@ -45,7 +50,8 @@ HARMFUL_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
 
 # Secondary hype/urgency amplifiers (only boost score when paired with a primary harmful signal)
 HYPE_AMPLIFIER_TERMS: Tuple[str, ...] = (
-    "100%", "200%", "x100", "30 giây", "5 phút", "3 ngày", "vip", "miễn phí", "khẩn cấp", "nhấp vào link",
+    "100%", "200%", "475%", "188%", "x100", "30 giây", "5 phút", "3 ngày", "vip", "miễn phí",
+    "khẩn cấp", "nhấp vào link", "play now", "chơi ngay", "nhận thưởng", "claim bonus", "fs", "vnd",
 )
 
 SAFE_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
@@ -84,6 +90,7 @@ def extract_visual_embedding_32d(
         "casino", "scam", "hate", "meme_harm", "nha_cai", "nha-cai", "nhacai",
         "thuoc_gia", "vay_nong", "gambling", "danger_banner", "#dc2626", "#ef4444", "#ff0000",
         "8xbet", "fb88", "w88", "m88", "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88", "188bet", "bk8",
+        "1xbet", "aw8", "jp88", "we88", "king88", "longfu88", "dafabet", "me88", "vn88",
     )
     safe_visual_cues = (
         "khoa_hoc", "ca_phe", "giay", "laptop", "du_lich", "sach",

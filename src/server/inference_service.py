@@ -11,6 +11,7 @@ import base64
 import ipaddress
 import json
 import pickle
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -39,6 +40,11 @@ CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
             "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "go88", "sunwin", "rikvip",
             "188bet", "fun88", "bk8", "ggbet", "deposit bonus", "first deposit", "welcome bonus",
             "betting sites", "esports betting", "bet on", "free bet", "sportsbook", "bookmaker",
+            "1xbet", "aw8", "jp88", "we88", "king88", "longfu88", "dafabet", "me88", "eu9", "vn88",
+            "sin88", "may88", "debet", "oxbet", "red88", "ta88", "sv88", "five88", "zbet", "dabet",
+            "thưởng nạp", "nạp lần đầu", "thưởng chào mừng", "tiền thưởng gửi tiền", "thưởng gửi tiền",
+            "vòng quay miễn phí", "vòng quay", "free spins", "vòng cược", "tặng tiền cược", "tiền cược",
+            "cược miễn phí", "game bài", "bắn cá đổi thưởng", "baccarat", "roulette", "slot game", "đá gà",
         ),
         "Quảng cáo cờ bạc, cá độ hoặc nhà cái trái phép",
     ),
@@ -168,13 +174,13 @@ class HarmfulAdInferenceService:
         reasons: List[str] = []
         matched_category = "safe_commercial_ad"
 
+        hint_lower = image_hint.lower()
+        combined_text = f"{lower_text} {hint_lower}"
         for cat_code, keywords, description in CATEGORY_LABELS:
-            matched_kws = [kw for kw in keywords if kw in lower_text]
+            matched_kws = [kw for kw in keywords if kw in combined_text]
             if matched_kws:
                 matched_category = cat_code
                 reasons.append(f"{description} (từ khóa: {', '.join(matched_kws[:4])})")
-
-        hint_lower = image_hint.lower()
         if any(c in hint_lower for c in ("casino", "scam", "hate", "vip", "hack", "thuoc", "vay", "#dc2626", "#ef4444")):
             reasons.append("Đặc trưng thị giác (Visual Embedding): Banner có độ tương phản/màu cảnh báo cao hoặc chữ chèn dày đặc")
 
@@ -213,9 +219,20 @@ class HarmfulAdInferenceService:
                 "#dc2626", "#ef4444", "casino", "scam", "hate", "thuoc_gia", "vay_nong",
                 "nha_cai", "nha-cai", "nhacai", "8xbet", "fb88", "w88", "m88", "kubet",
                 "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88", "188bet", "bk8",
+                "1xbet", "aw8", "jp88", "we88", "king88", "longfu88", "dafabet", "me88", "vn88",
             )
             if cue in hint_lower
         )
+
+        combined_signals = lower_text + " " + hint_lower
+        has_bookmaker_pattern = bool(
+            re.search(r"\b[a-z0-9]{2,10}(?:88|bet)\b", combined_signals)
+            or re.search(r"\b(?:aw8|bk8|k8|eu9|mu9|b52)\b", combined_signals)
+        )
+        if has_bookmaker_pattern and (
+            hype_hits >= 1 or any(t in lower_text for t in ("vnd", "play now", "thưởng", "nạp", "tiền", "gửi"))
+        ):
+            primary_hits += 2
 
         if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):
             harmful_prob = max(raw_prob, min(0.98, 0.80 + 0.04 * (primary_hits + hype_hits)))

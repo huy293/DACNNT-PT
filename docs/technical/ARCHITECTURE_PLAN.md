@@ -22,7 +22,7 @@
 
 ## 3. Cấu Trúc Cây Thư Mục (`Unified 3-Tier Architecture`)
 ```text
-e:\DACNTT/
+D:\Projects\DACNTT/
 ├── AGENTS.md & CLAUDE.md                        # Bản đồ điều hướng trung tâm cho AI Agent
 ├── Dockerfile & requirements.txt                # Đóng gói Multi-stage cho HuggingFace Spaces / Render
 ├── docs/                                        # Kho tài liệu sống 6 phân khu

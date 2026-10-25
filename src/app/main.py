@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from src.server.http_gateway import DEMO_HTML_PATH, GatewayController, run_stdlib_server
+from src.server.http_gateway import DEMO_HTML_PATH, IMAGES_DIR, GatewayController, run_stdlib_server
 
 controller = GatewayController()
 app: Any = None
@@ -18,12 +18,15 @@ try:
     from fastapi import FastAPI, File, Form, Request, UploadFile  # type: ignore
     from fastapi.middleware.cors import CORSMiddleware  # type: ignore
     from fastapi.responses import HTMLResponse, JSONResponse  # type: ignore
+    from fastapi.staticfiles import StaticFiles  # type: ignore
 
     app = FastAPI(
         title="Multimodal Harmful Digital Ad Detector API",
         description="Phát hiện quảng cáo số gây hại dựa trên Văn bản – Hình ảnh (CLIP + Classifier)",
-        version="1.0.0",
+        version="2.0.0",
     )
+    if IMAGES_DIR.exists():
+        app.mount("/data/images", StaticFiles(directory=str(IMAGES_DIR)), name="dataset_images")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

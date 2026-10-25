@@ -127,21 +127,17 @@
     let curr = node;
     for (let depth = 0; depth < 4 && curr && curr !== document.body; depth += 1) {
       if (countCardImages(curr) > 1) break;
-      let prev = curr.previousElementSibling;
-      for (let step = 0; step < 2 && prev; step += 1) {
-        if (countCardImages(prev) === 0) {
-          const txt = (prev.innerText || prev.textContent || "").replace(/\s+/g, " ").trim();
-          if (txt && txt.length >= 4 && !parts.includes(txt.slice(0, 260))) parts.unshift(txt.slice(0, 260));
+      for (const dir of ["previousElementSibling", "nextElementSibling"]) {
+        let sib = curr[dir];
+        for (let step = 0; step < 2 && sib; step += 1) {
+          if (countCardImages(sib) === 0) {
+            const txt = (sib.innerText || sib.textContent || "").replace(/\s+/g, " ").trim().slice(0, 260);
+            if (txt.length >= 4 && !parts.includes(txt)) {
+              if (dir === "previousElementSibling") parts.unshift(txt); else parts.push(txt);
+            }
+          }
+          sib = sib[dir];
         }
-        prev = prev.previousElementSibling;
-      }
-      let next = curr.nextElementSibling;
-      for (let step = 0; step < 2 && next; step += 1) {
-        if (countCardImages(next) === 0) {
-          const txt = (next.innerText || next.textContent || "").replace(/\s+/g, " ").trim();
-          if (txt && txt.length >= 4 && !parts.includes(txt.slice(0, 260))) parts.push(txt.slice(0, 260));
-        }
-        next = next.nextElementSibling;
       }
       curr = curr.parentElement;
     }
@@ -154,11 +150,8 @@
       '[aria-label*="Sponsored"]', '[aria-label*="Được tài trợ"]', "[data-offer-name]",
     ];
     const candidateSet = new Set();
-
     explicitSelectors.forEach((sel) => {
-      root.querySelectorAll(sel).forEach((el) => {
-        if (!isAlreadyProtected(el)) candidateSet.add(el);
-      });
+      root.querySelectorAll(sel).forEach((el) => { if (!isAlreadyProtected(el)) candidateSet.add(el); });
     });
 
     const ctaKeywords =
@@ -167,14 +160,9 @@
       if (isAlreadyProtected(btnEl)) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
       if (txt.length >= 4 && txt.length <= 65 && ctaKeywords.some((kw) => txt.includes(kw))) {
-        const fullCard = btnEl.closest(
-          "[data-offer-name], [class*='ranking'], [class*='offer'], [class*='casino'], [class*='card'], [class*='item'], tr, li, article"
-        );
-        if (fullCard && fullCard !== document.body && (fullCard.clientHeight || 0) <= 750 && !isAlreadyProtected(fullCard)) {
-          candidateSet.add(fullCard);
-        } else if (countCardImages(btnEl) === 0) {
-          candidateSet.add(btnEl);
-        }
+        const fullCard = btnEl.closest("[data-offer-name], [class*='ranking'], [class*='offer'], [class*='casino'], [class*='card'], [class*='item'], tr, li, article");
+        if (fullCard && fullCard !== document.body && (fullCard.clientHeight || 0) <= 750 && !isAlreadyProtected(fullCard)) candidateSet.add(fullCard);
+        else if (countCardImages(btnEl) === 0) candidateSet.add(btnEl);
       }
     });
 
@@ -184,24 +172,36 @@
       if (!container || isAlreadyProtected(container)) return;
       const width = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || container.clientWidth || 0;
       const containerText = (container.innerText || container.textContent || "").replace(/\s+/g, " ").trim();
-      const hasLocalOrSiblingText =
-        containerText.length >= 4 ||
-        Boolean(container.querySelector("p, span, h1, h2, h3, h4, h5, h6, figcaption, a, button, div")) ||
-        extractAdjacentSiblingText(imgEl).length > 0;
-      if ((hasLocalOrSiblingText && (width >= 44 || width === 0)) || isBannerLikeImage(imgEl)) {
-        candidateSet.add(container);
-      }
+      const hasText = containerText.length >= 4 || Boolean(container.querySelector("p, span, h1, h2, h3, h4, h5, h6, figcaption, a, button, div")) || extractAdjacentSiblingText(imgEl).length > 0;
+      if ((hasText && (width >= 44 || width === 0)) || isBannerLikeImage(imgEl)) candidateSet.add(container);
     });
 
     const list = Array.from(candidateSet).filter((el) => el.isConnected && !isAlreadyProtected(el));
     return list.filter((el) => !list.some((other) => other !== el && other.contains(el)));
   }
 
+  function resolveImageSource(imgEl, container) {
+    if (!imgEl) return container.getAttribute("data-image-hint") || "";
+    const candidates = [
+      imgEl.getAttribute("data-src"), imgEl.getAttribute("data-lazy-src"),
+      imgEl.getAttribute("data-original"), imgEl.currentSrc, imgEl.src,
+    ].filter((s) => s && !s.startsWith("data:image/gif"));
+    let url = candidates[0] || imgEl.src || "";
+    if (!url && imgEl.srcset) url = imgEl.srcset.split(",")[0].trim().split(" ")[0];
+    if (url.startsWith("blob:")) {
+      try {
+        const cv = document.createElement("canvas");
+        cv.width = 224; cv.height = 224;
+        cv.getContext("2d").drawImage(imgEl, 0, 0, 224, 224);
+        return cv.toDataURL("image/jpeg", 0.78);
+      } catch (_e) { return url; }
+    }
+    return url;
+  }
+
   function extractMultimodalAdData(adContainer, index) {
     const imgElement = adContainer.tagName === "IMG" ? adContainer : adContainer.querySelector("img");
-    const rawImgUrl = imgElement
-      ? imgElement.currentSrc || imgElement.src || imgElement.getAttribute("data-src") || ""
-      : adContainer.getAttribute("data-image-hint") || "";
+    const rawImgUrl = resolveImageSource(imgElement, adContainer);
 
     const anchorEl = adContainer.tagName === "A" ? adContainer : adContainer.querySelector("a[href]") || adContainer.closest("a[href]");
     const linkHref = anchorEl ? anchorEl.getAttribute("href") || anchorEl.href || "" : "";
@@ -418,15 +418,19 @@
       for (let i = 0; i < candidates.length; i += 1) {
         const adContainer = candidates[i];
         if (!adContainer || !adContainer.isConnected || isAlreadyProtected(adContainer)) continue;
+        if (adContainer.getAttribute("data-adshield-state") === "inflight") continue;
         const adData = extractMultimodalAdData(adContainer, i + 1);
         if (!adData.text && !adData.image_url) continue;
 
+        adContainer.setAttribute("data-adshield-state", "inflight");
         adContainer.setAttribute("data-adshield-scanned", "true");
         const prediction = await requestPrediction(adData, options.apiUrl);
-        if (!prediction) {
+        if (!prediction || !adContainer.isConnected) {
+          adContainer.removeAttribute("data-adshield-state");
           adContainer.removeAttribute("data-adshield-scanned");
           continue;
         }
+        adContainer.setAttribute("data-adshield-state", "done");
 
         summary.totalScanned += 1;
         if (prediction.is_harmful === true) {

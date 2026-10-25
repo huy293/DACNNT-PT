@@ -1,27 +1,97 @@
 {
-  "stage": "Stage 2 (Week 3) - Classifier Training & Evaluation",
+  "stage": "Stage 2 (Week 3) - Classifier Training & Multi-Model Evaluation (5-Fold CV + Holdout)",
   "target_accuracy_threshold": 0.75,
   "meets_stage2_target": true,
+  "selected_architecture": "SVM_LinearKernel",
+  "feature_dimension": 1024,
+  "train_samples": 6847,
+  "validation_samples": 1713,
   "validation_metrics": {
-    "accuracy": 1.0,
-    "precision": 1.0,
-    "recall": 1.0,
-    "f1_score": 1.0,
-    "tp": 2,
-    "tn": 2,
-    "fp": 0,
-    "fn": 0
+    "accuracy": 0.871,
+    "precision": 0.8371,
+    "recall": 0.7918,
+    "f1_score": 0.8138,
+    "roc_auc": 0.9489,
+    "tp": 483,
+    "tn": 1009,
+    "fp": 94,
+    "fn": 127
+  },
+  "cross_validation_5fold_metrics": {
+    "accuracy": 0.8514,
+    "precision": 0.8181,
+    "recall": 0.7494,
+    "f1_score": 0.7823,
+    "roc_auc": 0.9256,
+    "tp": 2285,
+    "tn": 5003,
+    "fp": 508,
+    "fn": 764,
+    "fold_accuracies": [
+      0.8511,
+      0.8499,
+      0.854,
+      0.8563,
+      0.8457
+    ]
+  },
+  "model_comparison_on_validation": {
+    "MLP_NeuralNet_128_64": {
+      "accuracy": 0.8657,
+      "precision": 0.8016,
+      "recall": 0.8279,
+      "f1_score": 0.8145,
+      "roc_auc": 0.9481,
+      "tp": 505,
+      "tn": 978,
+      "fp": 125,
+      "fn": 105
+    },
+    "SVM_LinearKernel": {
+      "accuracy": 0.871,
+      "precision": 0.8371,
+      "recall": 0.7918,
+      "f1_score": 0.8138,
+      "roc_auc": 0.9489,
+      "tp": 483,
+      "tn": 1009,
+      "fp": 94,
+      "fn": 127
+    },
+    "LightGBM_Classifier": {
+      "accuracy": 0.8646,
+      "precision": 0.8826,
+      "recall": 0.7148,
+      "f1_score": 0.7899,
+      "roc_auc": 0.9481,
+      "tp": 436,
+      "tn": 1045,
+      "fp": 58,
+      "fn": 174
+    },
+    "MultimodalLinearL2": {
+      "accuracy": 0.8511,
+      "precision": 0.8164,
+      "recall": 0.7508,
+      "f1_score": 0.7822,
+      "roc_auc": 0.9222,
+      "tp": 458,
+      "tn": 1000,
+      "fp": 103,
+      "fn": 152
+    }
   },
   "full_dataset_metrics": {
-    "accuracy": 1.0,
-    "precision": 1.0,
-    "recall": 1.0,
-    "f1_score": 1.0,
-    "tp": 10,
-    "tn": 10,
-    "fp": 0,
-    "fn": 0
+    "accuracy": 0.9139,
+    "precision": 0.9022,
+    "recall": 0.8504,
+    "f1_score": 0.8756,
+    "roc_auc": 0.974,
+    "tp": 2593,
+    "tn": 5230,
+    "fp": 281,
+    "fn": 456
   },
-  "saved_pkl_model": "E:\\DACNTT\\src\\server\\models\\harmful_ad_classifier.pkl",
-  "saved_json_weights": "E:\\DACNTT\\src\\mocks\\bootstrap_classifier_weights.json"
+  "saved_pkl_model": "D:\\Projects\\DACNTT\\src\\server\\models\\harmful_ad_classifier.pkl",
+  "saved_json_weights": "D:\\Projects\\DACNTT\\src\\mocks\\bootstrap_classifier_weights.json"
 }

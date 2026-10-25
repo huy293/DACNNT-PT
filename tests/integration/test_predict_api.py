@@ -63,6 +63,24 @@ class TestPredictAPIIntegration(unittest.TestCase):
             self.assertGreaterEqual(data["confidence"], 0.75)
             self.assertEqual(data["label"], "harmful_ad")
 
+    def test_predict_adversarial_obfuscated_harmful_ad(self) -> None:
+        """Edge Case Mitigation: Obfuscated text ('8.x.b.e.t', 'n.ổ h.ũ', 'L.o.r.a.m.e.n') is still caught."""
+        for adv_text in (
+            "Khuyến mãi 8.x.b.e.t n.ổ h.ũ cực đỉnh! Nạp đầu nhận ngay 888k, rút tiền 30 giây!",
+            "Thực phẩm L.o.r.a.m.e.n chính hãng: Tăng cường khả năng sinh lý, trị dứt điểm 100%!",
+        ):
+            req = urllib.request.Request(
+                f"{self.base_url}/predict",
+                data=json.dumps({"text": adv_text, "image_url": "https://example.com/ad.jpg"}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertIs(data["is_harmful"], True, f"Failed to detect obfuscated ad: {adv_text}")
+                self.assertEqual(data["label"], "harmful_ad")
+
     def test_predict_safe_ad_json(self) -> None:
         """BR-API-01: Legitimate commercial ad returns is_harmful=False."""
         payload = json.dumps({

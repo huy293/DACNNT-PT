@@ -1,49 +1,56 @@
 {
-  "stage": "Stage 1 - Dataset Preprocessing & EDA",
+  "stage": "Stage 1 - Dataset Preprocessing & EDA (OpenCV + Pandas)",
   "dataset_source": "sample_ads_dataset.json",
-  "pandas_used": false,
-  "opencv_used": false,
-  "total_raw_samples": 20,
-  "total_valid_samples": 20,
+  "notebooklm_notebook_url": "https://notebook.google.com/notebook/a8bfe623-f06d-4902-9a4d-dcdab650e3e2",
+  "pandas_used": true,
+  "opencv_used": true,
+  "total_raw_samples": 8560,
+  "total_valid_samples": 8560,
+  "physical_images_verified_by_opencv": 8560,
   "rejected_corrupted_samples": 0,
   "rejected_sample_ids": [],
   "image_statistics": {
-    "min_width": 600,
-    "max_width": 900,
-    "avg_width": 767.0,
-    "min_height": 400,
-    "max_height": 640,
-    "avg_height": 488.5
+    "min_width": 94,
+    "max_width": 825,
+    "avg_width": 597.3,
+    "min_height": 94,
+    "max_height": 823,
+    "avg_height": 523.4
   },
   "text_statistics": {
-    "min_char_length": 97,
-    "max_char_length": 140,
-    "avg_char_length": 124.1,
-    "min_word_count": 20,
-    "max_word_count": 33,
-    "avg_word_count": 27.3
+    "min_char_length": 4,
+    "max_char_length": 433,
+    "avg_char_length": 62.8,
+    "min_word_count": 1,
+    "max_word_count": 70,
+    "avg_word_count": 11.9
   },
   "class_distribution": {
-    "harmful_ads_label_1": 10,
-    "safe_ads_label_0": 10,
-    "harmful_percentage": 50.0,
-    "safe_percentage": 50.0,
-    "imbalance_ratio": 1.0,
-    "is_imbalanced": false
+    "harmful_ads_label_1": 3049,
+    "safe_ads_label_0": 5511,
+    "harmful_percentage": 35.62,
+    "safe_percentage": 64.38,
+    "imbalance_ratio": 1.807,
+    "is_imbalanced": true
+  },
+  "source_dataset_breakdown": {
+    "NotebookLM Real Vietnamese Harmful Ad Corpus (Bộ Công An / Bộ Y Tế / Bộ TTTT / Báo chí)": 20,
+    "NotebookLM Real Vietnamese Harmful Ad Corpus (Bộ Công An / Bộ Y Tế / Bộ TTTT / Quốc hội)": 10,
+    "NotebookLM Compliant Commercial & Public Information Corpus (Luật Quảng cáo 2012 / NĐ 147/2024)": 20,
+    "NotebookLM Compliant Commercial & Legal Regulatory Corpus (NĐ 87/2026 / Luật Quảng cáo 2026)": 10,
+    "Facebook AI Hateful Memes Challenge (Official Real Photographs)": 8500
   },
   "category_breakdown": {
-    "gambling_scam": 2,
-    "hate_speech_meme": 3,
-    "medical_misinformation": 2,
-    "financial_scam": 2,
-    "phishing_scam": 1,
-    "education": 2,
-    "food_beverage": 1,
-    "retail_fashion": 1,
-    "technology": 2,
-    "travel": 1,
-    "books_culture": 1,
-    "productivity_app": 1,
-    "healthcare_legit": 1
+    "medical_misinformation": 8,
+    "financial_scam": 7,
+    "phishing_scam": 3,
+    "gambling_scam": 8,
+    "hate_speech_meme": 3023,
+    "safe_education_ad": 7,
+    "safe_ecommerce_ad": 10,
+    "safe_healthcare_ad": 3,
+    "safe_finance_ad": 1,
+    "safe_Public_ad": 5,
+    "safe_benign_confounder": 5485
   }
 }

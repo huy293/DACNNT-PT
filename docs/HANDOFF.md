@@ -1,0 +1,15 @@
+# AGENT CONTEXT HANDOFF (`HANDOFF.md`)
+
+> Bản đồng bộ chuẩn Rule 08.4 (xem chi tiết tại [`docs/ops/HANDOFF.md`](./ops/HANDOFF.md)).
+> **Sổ ghi chú nghiên cứu NotebookLM (39 nguồn thực tế):** [`https://notebook.google.com/notebook/a8bfe623-f06d-4902-9a4d-dcdab650e3e2`](https://notebook.google.com/notebook/a8bfe623-f06d-4902-9a4d-dcdab650e3e2)
+
+1. **Trạng thái hiện tại:** Hoàn thành 100% cả 5 Giai đoạn tại `D:\Projects\DACNTT` với quy mô **toàn bộ 8.560 bức ảnh chụp thực tế (`8.500` ảnh nguyên bản từ trọn bộ 7/7 gói Parquet của `Facebook AI Hateful Memes Challenge` + `60` mẫu quảng cáo thực tế tại Việt Nam từ 39 nguồn NotebookLM)**:
+   - **8.560 mẫu dữ liệu đa phương thức thực tế (`3.049` độc hại `label=1` + `5.511` hợp lệ `label=0`)** kèm **8.560 file ảnh `.png` chụp thực tế** tại `D:\Projects\DACNTT\data\images\` (kiểm định 100% qua `OpenCV` & `Pandas` tại `src/mocks/eda_report.json`).
+   - **Trích xuất đặc trưng theo lô (`batch_size=128`) với `OpenAI CLIP ViT-B/32` (`1024`-d) kết hợp tương tác chéo đa phương thức `Hate-CLIPper` (`Hadamard v_img ⊙ v_txt`, `|v_img - v_txt|`, `cos(v_img, v_txt)`), ngữ nghĩa thị giác `BLIP/CLIP ViT-L/14`, bộ giải mã lách chữ (`deobfuscate_ad_text`) và `EasyOCR` (`vi`, `en`, thu nhỏ ảnh `max_side=640px`)**, lưu đầy đủ `8.560 x 1.024` vector tại `src/mocks/features.csv`.
+   - **Huấn luyện cân bằng trọng số lớp trên 8.560 ảnh thật (`6.847` train / `1.713` validation + 5-Fold Stratified CV)** trên 4 kiến trúc (`MLP_NeuralNet_128_64`, `SVM_LinearKernel`, `LightGBM_Classifier`, `MultimodalLinearL2`) đạt **Validation Accuracy = 87.10%** (`ROC-AUC = 0.9489`), **5-Fold CV Accuracy = 85.14%** (`ROC-AUC = 0.9256`), **Full Dataset Accuracy = 91.39%** (`ROC-AUC = 0.9740`).
+   - **FastAPI `POST /predict` (tích hợp SHA-256 LRU Cache 512 mục), `/data/images/<name>.png`, `/demo` hiển thị ảnh `.png` thực tế** và **Chrome/Edge Extension Manifest V3 (`blur(10px)`, `"all_frames": true`, hỗ trợ ảnh lazy-load `data-src`/`srcset` + chụp `blob:` qua `<canvas>`, khóa `data-adshield-state="inflight"` & Circuit Breaker)**.
+2. **Việc đang dở:** Không còn.
+3. **Quyết định kỹ thuật:** Tải trọn bộ 7/7 gói Parquet của `Multimodal-Fatima/HatefulMemes_train` (`8.500` bức ảnh gốc của Facebook AI) kết hợp `60` mẫu thực tế Việt Nam từ **39 nguồn NotebookLM** = **8.560 mẫu**, xử lý lệch nhãn (`imbalance_ratio = 1.807`) bằng trọng số cân bằng lớp.
+4. **File đã chạm:** `src/mocks/sample_ads_dataset.json`, `data/images/*.png` (8.560 real photographs), `src/features/dataset_eda/preprocess_eda.py`, `src/features/clip_extractor/extract_features.py`, `src/features/classifier/train_classifier.py`, `src/server/models/harmful_ad_classifier.pkl`, `src/server/models/model_metrics.json`, `docs/HANDOFF.md`, `docs/ops/HANDOFF.md`.
+5. **Blocker:** Không có.
+6. **3 bước tiếp theo:** (1) Chạy `python -m src.app.main`; (2) Mở `chrome://extensions/` $\rightarrow$ `Load unpacked` thư mục `D:\Projects\DACNTT\src\features\extension`; (3) Mở `http://127.0.0.1:8000/demo` để trải nghiệm ảnh `.png` thực tế và quay video bảo vệ.

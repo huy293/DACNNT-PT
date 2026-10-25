@@ -55,8 +55,13 @@ def load_config() -> AppConfig:
         "BOOTSTRAP_WEIGHTS_PATH", "src/mocks/bootstrap_classifier_weights.json"
     )
 
-    fallback_raw = os.getenv("ENABLE_LIGHTWEIGHT_FALLBACK", "true").strip().lower()
+    fallback_raw = os.getenv("ENABLE_LIGHTWEIGHT_FALLBACK", "false").strip().lower()
     enable_fallback = fallback_raw in ("1", "true", "yes", "on")
+
+    max_img_mb = int(os.getenv("MAX_IMAGE_SIZE_MB", "5"))
+    req_timeout = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "10"))
+    if max_img_mb <= 0 or req_timeout <= 0:
+        raise ValueError("MAX_IMAGE_SIZE_MB and REQUEST_TIMEOUT_SECONDS must be positive integers.")
 
     return AppConfig(
         app_env=os.getenv("APP_ENV", "development"),
@@ -70,6 +75,6 @@ def load_config() -> AppConfig:
         harmful_threshold=threshold,
         enable_lightweight_fallback=enable_fallback,
         cors_allowed_origins=os.getenv("CORS_ALLOWED_ORIGINS", "*"),
-        max_image_size_mb=int(os.getenv("MAX_IMAGE_SIZE_MB", "5")),
-        request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "10")),
+        max_image_size_mb=max_img_mb,
+        request_timeout_seconds=req_timeout,
     )

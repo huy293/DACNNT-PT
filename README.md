@@ -40,7 +40,7 @@ Sau khi chạy lệnh trên:
 1. Mở trình duyệt Chrome truy cập `chrome://extensions/` (hoặc Edge truy cập `edge://extensions/`).
 2. Bật công tắc **Chế độ dành cho nhà phát triển (Developer mode)** ở góc trên bên phải.
 3. Nhấn nút **Tải tiện ích đã giải nén (Load unpacked)**.
-4. Chọn thư mục: `e:\DACNTT\src\features\extension`
+4. Chọn thư mục: `D:\Projects\DACNTT\src\features\extension`
 5. Mở trang `http://127.0.0.1:8000/demo` (hoặc bất kỳ trang báo/mạng xã hội nào):
    - Các quảng cáo độc hại sẽ tự động bị làm mờ `filter: blur(10px)` kèm nút bấm: **"Quảng cáo này có thể chứa nội dung độc hại. Nhấp để xem"**.
    - Nhấp vào biểu tượng tiện ích **AdShield AI** trên thanh công cụ trình duyệt để xem thống kê số quảng cáo đã quét, số quảng cáo độc hại đã chặn và cấu hình URL API.

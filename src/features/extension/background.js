@@ -15,6 +15,9 @@ const DEFAULT_SETTINGS = {
 };
 
 const predictionCache = new Map();
+const MAX_CACHE_ENTRIES = 500;
+let consecutiveFailures = 0;
+let circuitOpenUntil = 0;
 
 const tabStats = {
   totalScanned: 0,
@@ -52,6 +55,10 @@ async function callBackendPredict(payload) {
     return { ok: true, data: predictionCache.get(cacheKey), cached: true };
   }
 
+  if (Date.now() < circuitOpenUntil) {
+    return { ok: false, error: "Circuit Breaker: Tạm ngắt kết nối 5s do Backend không phản hồi" };
+  }
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -73,7 +80,13 @@ async function callBackendPredict(payload) {
     }
 
     const result = await response.json();
+    consecutiveFailures = 0;
+    circuitOpenUntil = 0;
     predictionCache.set(cacheKey, result);
+    if (predictionCache.size > MAX_CACHE_ENTRIES) {
+      const oldestKey = predictionCache.keys().next().value;
+      predictionCache.delete(oldestKey);
+    }
 
     tabStats.totalScanned += 1;
     tabStats.lastLatencyMs = result.latency_ms || 0;
@@ -87,6 +100,10 @@ async function callBackendPredict(payload) {
 
     return { ok: true, data: result, cached: false };
   } catch (err) {
+    consecutiveFailures += 1;
+    if (consecutiveFailures >= 3) {
+      circuitOpenUntil = Date.now() + 5000;
+    }
     tabStats.lastError = err && err.message ? err.message : "Không thể kết nối Backend API";
     return { ok: false, error: tabStats.lastError };
   }

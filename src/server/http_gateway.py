@@ -24,6 +24,7 @@ from src.server.schemas import PredictRequestDTO
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEMO_HTML_PATH = PROJECT_ROOT / "src" / "app" / "demo" / "index.html"
+IMAGES_DIR = PROJECT_ROOT / "data" / "images"
 
 
 class GatewayController:
@@ -154,6 +155,19 @@ def create_stdlib_http_handler(controller: GatewayController):
                     self._send_cors_headers()
                     self.end_headers()
                     self.wfile.write(html_bytes)
+                    return
+
+            if path.startswith("/data/images/"):
+                safe_name = Path(path.replace("/data/images/", "", 1)).name
+                img_file = (IMAGES_DIR / safe_name).resolve()
+                if img_file.is_file() and img_file.parent == IMAGES_DIR.resolve():
+                    img_bytes = img_file.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Content-Length", str(len(img_bytes)))
+                    self._send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(img_bytes)
                     return
 
             self._send_json(404, {"error": "NOT_FOUND", "path": path})

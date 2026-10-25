@@ -73,14 +73,14 @@ HARMFUL_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
         "steal", "removes polish", "wind chime", "cooooooooooooon", "mental illness", "syrian", "cure them",
     ),
     ("cờ bạc", "lô đề", "xóc đĩa", "bắn cá đổi thưởng", "vay tiền nhanh cmnd", "tín dụng đen"),
-    ("lừa đảo chiếm đoạt", "hack tài khoản", "bịp bợm", "thuốc gia truyền 3 đời", "trúng thưởng iphone", "phim sex", "phimsex", "sexfull", "sex jav", "jav hd", "javhd", "không che", "khong che", "vlxx", "xvideos", "xnxx", "pornhub", "xhamster", "spankbang", "redtube", "youporn", "missav", "avhd", "hentai", "khiêu dâm", "đồi trụy", "clip nóng", "lộ clip", "gái gọi", "sugar baby", "onlyfans", "khỏa thân", "phim 18+", "18+", "web sex", "xem sex", "sex vietsub", "porn", "nsfw", "jav sub", "bestjavhd", "fuck", "fucks", "stepmother", "stepson", "uncensored", "milf", "xxx"),
+    ("lừa đảo chiếm đoạt", "hack tài khoản", "bịp bợm", "thuốc gia truyền 3 đời", "trúng thưởng iphone", "phim sex", "phimsex", "sexfull", "sex jav", "jav hd", "javhd", "không che", "khong che", "vlxx", "xvideos", "xnxx", "pornhub", "xhamster", "spankbang", "redtube", "youporn", "missav", "hentai", "khiêu dâm", "đồi trụy", "clip nóng", "lộ clip", "gái gọi", "sugar baby", "onlyfans", "khỏa thân", "phim 18+", "clip 18+", "web sex", "xem sex", "sex vietsub", "porn", "nsfw", "jav sub", "bestjavhd", "stepson", "stepmother", "uncensored", "phim xxx", "clip xxx"),
 )
 HYPE_AMPLIFIER_TERMS: Tuple[str, ...] = (
     "100%", "200%", "300%", "475%", "188%", "x100", "30 giây", "5 phút", "3 phút", "3 ngày", "vip", "miễn phí",
     "khẩn cấp", "nhấp vào link", "play now", "chơi ngay", "nhận thưởng", "claim bonus", "fs", "vnd",
 )
 SAFE_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
-    ("khóa học", "lập trình", "sinh viên", "ielts", "tiếng anh", "giáo viên", "học viên", "đại học", "đào tạo", "chuyên gia", "công nghệ", "devops", "cybersoft", "skill", "đi làm", "developer", "kỹ sư", "phần mềm", "aws", "docker", "kubernetes"),
+    ("khóa học", "lập trình", "sinh viên", "ielts", "tiếng anh", "giáo viên", "học viên", "đại học", "đào tạo", "chuyên gia", "công nghệ", "devops", "cybersoft", "skill", "đi làm", "developer", "kỹ sư", "phần mềm", "aws", "docker", "kubernetes", "tuyển dụng", "nhân sự", "ứng tuyển", "outsource", "tester", "data engineer", "business analyst", "data analyst", "kinh nghiệm", "thưởng tết", "onboard"),
     ("cà phê", "arabica", "nguyên chất", "cửa hàng", "chính hãng", "bảo hành", "đại lý ủy quyền", "ocop", "xanhsm", "xanh sm", "vinfast", "grab", "be group"),
     ("giày chạy bộ", "thể thao", "laptop", "tai nghe", "pin", "văn phòng", "trả góp", "máy rửa bát", "iso 22000"),
     ("du lịch", "kỳ nghỉ", "gia đình", "khách sạn", "hội sách", "khoa học", "kỹ thuật phần mềm", "hội thảo", "japan", "nhật bản", "vibe check", "first time", "vlog", "review", "tin tức", "thời sự", "báo chí"),

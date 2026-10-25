@@ -260,8 +260,9 @@
     extractAdjacentSiblingText(imgElement || adContainer).forEach((st) => { if (!collectedParts.includes(st)) collectedParts.push(st); });
     const pageSignals = detectPageGamblingSignals();
     if (pageSignals.length > 0) collectedParts.push(`Ngữ cảnh trang web cá cược: ${pageSignals.slice(0, 4).join(", ")}`);
-    if (linkHref && !linkHref.startsWith("javascript:")) collectedParts.push(linkHref);
-    const combinedHint = [rawImgUrl, linkHref, String(adContainer.className || ""), adContainer.id || ""].filter(Boolean).join(" ");
+    const cleanLink = linkHref && !linkHref.startsWith("javascript:") ? linkHref.split("?")[0] : "";
+    if (cleanLink && !/facebook\.com\/(photo|reel|watch|stories)|google\.com\/search/i.test(cleanLink)) collectedParts.push(cleanLink);
+    const combinedHint = [rawImgUrl, cleanLink, String(adContainer.className || ""), adContainer.id || ""].filter(Boolean).join(" ");
     const hasLoadedImage = Boolean(rawImgUrl) && (!imgElement || !(imgElement.complete && imgElement.naturalWidth > 0 && imgElement.naturalWidth <= 2));
     return { ad_id: adContainer.getAttribute("data-ad-id") || `dom_ad_${index}`, image_url: rawImgUrl || combinedHint, text: collectedParts.join(" — ").slice(0, 650), imgElement, hasLoadedImage };
   }
@@ -404,7 +405,8 @@
     return { totalScanned: harmfulBlurred + safeVerified, harmfulBlurred, safeVerified };
   }
   function instantLocalPreShield(adData) {
-    const imgHint = adData.image_url && !adData.image_url.startsWith("data:") ? adData.image_url : "";
+    const rawUrl = String(adData.image_url || "");
+    const imgHint = !rawUrl.startsWith("data:") && !/fbcdn\.net|gstatic\.com|googleusercontent\.com/i.test(rawUrl) ? rawUrl.split("?")[0] : "";
     const combined = `${adData.text || ""} ${imgHint}`;
     for (let i = 0; i < INSTANT_HARM_RULES.length; i += 1) {
       if (INSTANT_HARM_RULES[i][1].test(combined)) return { is_harmful: true, confidence: 0.92, category: INSTANT_HARM_RULES[i][0], reasons: [WARNING_BUTTON_TEXT] };

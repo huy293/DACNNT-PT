@@ -102,14 +102,14 @@ CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
         (
             "phim sex", "phimsex", "clip sex", "clipsex", "s.e.x", "sexfull", "sex jav", "jav hd", "javhd",
             "không che", "khong che", "vlxx", "xvideos", "xnxx", "pornhub", "xhamster", "spankbang", "redtube",
-            "youporn", "missav", "avhd", "eporner", "sexmoiz", "doocliphot", "cliphot", "avjb", "sifangds",
+            "youporn", "missav", "eporner", "sexmoiz", "doocliphot", "cliphot", "avjb", "sifangds",
             "anh-bia-phim", "con-re-chich", "chịch", "hiếp dâm", "loạn luân", "thuốc mê", "thuoc me",
             "lầu xanh", "lauxanh", "thiendia", "rphang", "viet69", "heovl", "xlecx", "javmost", "javtiful",
-            "supjav", "njav", "avgle", "brazzers", "fansly", "chaturbate", "stripchat", "livejasmin", "cam4",
+            "supjav", "njav", "avgle", "brazzers", "fansly", "chaturbate", "stripchat", "livejasmin",
             "bongacams", "rule34", "nhentai", "hanime", "hitomi", "hentai", "khiêu dâm", "đồi trụy",
-            "clip nóng", "lộ clip", "gái gọi", "sugar baby", "onlyfans", "khỏa thân", "phim 18+", "18+",
-            "web sex", "xem sex", "sex vietsub", "porn", "nsfw", "jav sub", "bestjavhd", "fuck", "fucks",
-            "stepmother", "stepson", "uncensored", "milf", "xxx",
+            "clip nóng", "lộ clip", "gái gọi", "sugar baby", "onlyfans", "khỏa thân", "phim 18+", "clip 18+",
+            "web sex", "xem sex", "sex vietsub", "porn", "nsfw", "jav sub", "bestjavhd",
+            "stepmother", "stepson", "uncensored", "phim xxx", "clip xxx",
         ),
         "Nội dung/Quảng cáo khiêu dâm, đồi trụy 18+ hoặc dẫn dụ web đen trái thuần phong mỹ tục (Vi phạm Khoản 1 Điều 8 Luật Quảng cáo)",
     ),
@@ -230,11 +230,17 @@ class HarmfulAdInferenceService:
         self, text: str, image_hint: str, is_harmful: bool
     ) -> Tuple[str, List[str]]:
         """Explain which multimodal signals triggered the harmful classification."""
-        lower_text = deobfuscate_ad_text(text or "").lower()
+        clean_raw_text = re.sub(r"https?://\S+", lambda m: m.group(0).split("?", 1)[0], text or "")
+        lower_text = deobfuscate_ad_text(clean_raw_text).lower()
         reasons: List[str] = []
         matched_category = "safe_commercial_ad"
 
-        hint_lower = image_hint.lower()
+        if image_hint.startswith(("data:", "blob:")) or any(
+            cdn in image_hint.lower() for cdn in ("fbcdn.net", "gstatic.com", "googleusercontent.com", "pinimg.com")
+        ):
+            hint_lower = ""
+        else:
+            hint_lower = image_hint.split("?", 1)[0].lower()
         combined_text = f"{lower_text} {hint_lower}"
         for cat_code, keywords, description in CATEGORY_LABELS:
             matched_kws = [kw for kw in keywords if kw in combined_text]
@@ -258,17 +264,24 @@ class HarmfulAdInferenceService:
         start_ns = time.perf_counter_ns()
         dto.validate()
 
-        clean_text = deobfuscate_ad_text(dto.text or "")
+        stripped_text = re.sub(r"https?://\S+", lambda m: m.group(0).split("?", 1)[0], dto.text or "")
+        clean_text = deobfuscate_ad_text(stripped_text)
         lower_text = clean_text.lower()
         raw_hint = (dto.image_url or "").strip()
-        hint_lower = "data_uri_image" if raw_hint.startswith("data:image/") else raw_hint.lower()
+        if raw_hint.startswith(("data:", "blob:")) or any(
+            cdn in raw_hint.lower() for cdn in ("fbcdn.net", "gstatic.com", "googleusercontent.com", "pinimg.com")
+        ):
+            hint_lower = "cdn_or_data_image"
+        else:
+            hint_lower = raw_hint.split("?", 1)[0].lower()
         combined_signals = f"{lower_text} {hint_lower}"
 
-        primary_hits = sum(
-            1 for grp in HARMFUL_LEXICON_GROUPS for kw in grp if kw in combined_signals
-        ) + sum(
-            1 for _, kws, _ in CATEGORY_LABELS for kw in kws if kw in combined_signals
-        )
+        matched_harm_Set = {
+            kw for grp in HARMFUL_LEXICON_GROUPS for kw in grp if kw in combined_signals
+        } | {
+            kw for _, kws, _ in CATEGORY_LABELS for kw in kws if kw in combined_signals
+        }
+        primary_hits = len(matched_harm_Set)
         if (
             re.search(r"\bsex\b", combined_signals)
             and "sex and the city" not in combined_signals
@@ -308,6 +321,8 @@ class HarmfulAdInferenceService:
             primary_hits += 2
 
         safe_hits = sum(1 for grp in SAFE_LEXICON_GROUPS for kw in grp if kw in lower_text)
+        if safe_hits >= 2 and primary_hits <= 1:
+            primary_hits = 0
 
         # Only skip remote HTTP image download when text/URL ALREADY proves the item is harmful
         is_remote_http_img = raw_hint.startswith(("http://", "https://")) and "/data/images/" not in hint_lower
@@ -315,7 +330,6 @@ class HarmfulAdInferenceService:
             img_bytes, img_hint = None, raw_hint
         else:
             img_bytes, img_hint = self._resolve_image_bytes(dto)
-            hint_lower = img_hint.lower()
 
         cache_hasher = hashlib.sha256()
         cache_hasher.update((dto.text or "").encode("utf-8"))

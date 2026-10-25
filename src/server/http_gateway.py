@@ -242,26 +242,12 @@ def create_stdlib_http_handler(controller: GatewayController):
 
 
 class _BoundedPoolHTTPServer(HTTPServer):
-    """HTTPServer backed by a persistent worker ThreadPoolExecutor to prevent OS thread/OpenMP TLS exhaustion."""
+    """Single-threaded HTTPServer executing 100% on MainThread so PyTorch/OpenMP & OpenCV never cross OS threads on Windows."""
 
-    def __init__(self, server_address: Tuple[str, int], RequestHandlerClass: Any) -> None:
-        super().__init__(server_address, RequestHandlerClass)
-        self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="adshield-http")
+    allow_reuse_address = False
 
-    def process_request_thread(self, request: Any, client_address: Any) -> None:
-        try:
-            self.finish_request(request, client_address)
-        except Exception:
-            self.handle_error(request, client_address)
-        finally:
-            self.shutdown_request(request)
-
-    def process_request(self, request: Any, client_address: Any) -> None:
-        self._pool.submit(self.process_request_thread, request, client_address)
-
-    def server_close(self) -> None:
-        super().server_close()
-        self._pool.shutdown(wait=False, cancel_futures=True)
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        return
 
 
 def run_stdlib_server(

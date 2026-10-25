@@ -98,10 +98,10 @@ CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
     (
         "adult_nsfw_scam",
         (
-            "phim sex", "sex jav", "jav hd", "javhd", "không che", "khong che", "vlxx", "xvideos", "xnxx",
-            "pornhub", "hentai", "khiêu dâm", "đồi trụy", "clip nóng", "lộ clip", "gái gọi", "sugar baby",
-            "onlyfans", "khỏa thân", "phim 18+", "web sex", "xem sex", "sex vietsub", "porn", "nsfw",
-            "jav sub", "bestjavhd",
+            "phim sex", "phimsex", "sexfull", "sex jav", "jav hd", "javhd", "không che", "khong che", "vlxx", "xvideos", "xnxx",
+            "pornhub", "xhamster", "spankbang", "redtube", "youporn", "missav", "avhd", "hentai", "khiêu dâm", "đồi trụy", "clip nóng", "lộ clip", "gái gọi", "sugar baby",
+            "onlyfans", "khỏa thân", "phim 18+", "18+", "web sex", "xem sex", "sex vietsub", "porn", "nsfw",
+            "jav sub", "bestjavhd", "fuck", "fucks", "stepmother", "stepson", "uncensored", "milf", "xxx",
         ),
         "Nội dung/Quảng cáo khiêu dâm, đồi trụy 18+ hoặc dẫn dụ web đen trái thuần phong mỹ tục (Vi phạm Khoản 1 Điều 8 Luật Quảng cáo)",
     ),

@@ -73,7 +73,7 @@ HARMFUL_LEXICON_GROUPS: Tuple[Tuple[str, ...], ...] = (
         "steal", "removes polish", "wind chime", "cooooooooooooon", "mental illness", "syrian", "cure them",
     ),
     ("cờ bạc", "lô đề", "xóc đĩa", "bắn cá đổi thưởng", "vay tiền nhanh cmnd", "tín dụng đen"),
-    ("lừa đảo chiếm đoạt", "hack tài khoản", "bịp bợm", "thuốc gia truyền 3 đời", "trúng thưởng iphone", "phim sex", "sex jav", "jav hd", "javhd", "không che", "khong che", "vlxx", "xvideos", "xnxx", "pornhub", "hentai", "khiêu dâm", "đồi trụy", "clip nóng", "lộ clip", "gái gọi", "sugar baby", "onlyfans", "khỏa thân", "phim 18+", "web sex", "xem sex", "sex vietsub", "porn", "nsfw", "jav sub", "bestjavhd"),
+    ("lừa đảo chiếm đoạt", "hack tài khoản", "bịp bợm", "thuốc gia truyền 3 đời", "trúng thưởng iphone", "phim sex", "phimsex", "sexfull", "sex jav", "jav hd", "javhd", "không che", "khong che", "vlxx", "xvideos", "xnxx", "pornhub", "xhamster", "spankbang", "redtube", "youporn", "missav", "avhd", "hentai", "khiêu dâm", "đồi trụy", "clip nóng", "lộ clip", "gái gọi", "sugar baby", "onlyfans", "khỏa thân", "phim 18+", "18+", "web sex", "xem sex", "sex vietsub", "porn", "nsfw", "jav sub", "bestjavhd", "fuck", "fucks", "stepmother", "stepson", "uncensored", "milf", "xxx"),
 )
 HYPE_AMPLIFIER_TERMS: Tuple[str, ...] = (
     "100%", "200%", "300%", "475%", "188%", "x100", "30 giây", "5 phút", "3 phút", "3 ngày", "vip", "miễn phí",

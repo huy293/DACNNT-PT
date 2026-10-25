@@ -13,36 +13,44 @@
   border-radius: 12px !important;
 }
 
-[data-ad-media-body="true"] {
-  width: 100% !important;
-  height: 100% !important;
-}
-
+.adshield-card-wrapper img.adshield-blurred-target,
 .adshield-blurred-target {
-  filter: blur(10px) !important;
-  transition: filter 250ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+  filter: blur(18px) brightness(0.22) !important;
+  -webkit-filter: blur(18px) brightness(0.22) !important;
+  transition: filter 200ms cubic-bezier(0.22, 1, 0.36, 1) !important;
   user-select: none !important;
 }
 
+.adshield-card-wrapper img.adshield-unblurred-target,
 .adshield-unblurred-target {
   filter: none !important;
-  transition: filter 250ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+  -webkit-filter: none !important;
+  transition: filter 200ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
 .adshield-warning-overlay {
   position: absolute !important;
   inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
   z-index: 2147483640 !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 16px !important;
+  padding: 12px !important;
   text-align: center !important;
-  background: rgba(15, 23, 42, 0.76) !important;
-  backdrop-filter: blur(4px) !important;
+  background: rgba(15, 23, 42, 0.97) !important;
+  backdrop-filter: blur(22px) !important;
+  -webkit-backdrop-filter: blur(22px) !important;
   color: #F9FAFB !important;
   font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  pointer-events: auto !important;
   transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
@@ -86,7 +94,13 @@
 }
 
 .adshield-warning-overlay.adshield-overlay-minimized {
-  inset: auto 12px 12px auto !important;
+  inset: auto 8px 8px auto !important;
+  top: auto !important;
+  left: auto !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  width: auto !important;
+  height: auto !important;
   padding: 6px 8px !important;
   border-radius: 10px !important;
   background: rgba(15, 23, 42, 0.92) !important;

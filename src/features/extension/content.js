@@ -64,23 +64,47 @@
     return isGifBanner || isWideLeaderboard || isThinBookmakerBadge || (inBannerBox && w >= 45);
   }
 
+  function getVisualSize(el) {
+    if (!el) return { w: 0, h: 0 };
+    try {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return { w: r.width, h: r.height };
+    } catch (_e) {}
+    const cw = el.clientWidth || Number(el.getAttribute("width")) || el.width || el.naturalWidth || 0;
+    const ch = el.clientHeight || Number(el.getAttribute("height")) || el.height || el.naturalHeight || 0;
+    return { w: cw, h: ch };
+  }
+
+  function isSubstantiveCardImage(im) {
+    if (!im) return false;
+    const cls = String(im.className || "").toLowerCase();
+    const alt = String(im.alt || "").toLowerCase();
+    const src = String(im.currentSrc || im.src || "").toLowerCase();
+    if (/star|icon|badge|rank|flag|favicon|xno5ab|wepbbf|zr758c/.test(`${cls} ${alt} ${src}`)) return false;
+    const attrW = Number(im.getAttribute("width")) || 0, attrH = Number(im.getAttribute("height")) || 0;
+    if ((attrW > 0 && attrW <= 44) || (attrH > 0 && attrH <= 44)) return false;
+    const { w, h } = getVisualSize(im);
+    if ((w > 0 && w <= 48) || (h > 0 && h <= 44)) return false;
+    return w >= 56 && h >= 48;
+  }
+
   function countCardImages(el) {
     if (!el || !el.querySelectorAll) return 0;
-    let count = 0;
+    const boxes = [];
     const imgs = el.querySelectorAll("img");
     for (let i = 0; i < imgs.length; i += 1) {
       const im = imgs[i];
-      const cls = String(im.className || "").toLowerCase();
-      const alt = String(im.alt || "").toLowerCase();
-      const src = String(im.currentSrc || im.src || "").toLowerCase();
-      if (/star|icon|badge|rank|flag|favicon|xno5ab|wepbbf|zr758c/.test(`${cls} ${alt} ${src}`)) continue;
-      const attrW = Number(im.getAttribute("width")) || 0, attrH = Number(im.getAttribute("height")) || 0;
-      const w = im.naturalWidth || im.width || im.clientWidth || attrW || 0;
-      const h = im.naturalHeight || im.height || im.clientHeight || attrH || 0;
-      if ((w > 0 && w <= 42) || (h > 0 && h <= 42) || (attrW > 0 && attrW <= 42) || (attrH > 0 && attrH <= 42)) continue;
-      if (w >= 48 && h >= 44) count += 1;
+      if (!isSubstantiveCardImage(im)) continue;
+      let rect = { left: i * 100, top: i * 100 };
+      try {
+        const r = im.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) rect = { left: r.left, top: r.top };
+      } catch (_e) {}
+      if (!boxes.some((b) => Math.abs(b.left - rect.left) < 42 && Math.abs(b.top - rect.top) < 42)) {
+        boxes.push(rect);
+      }
     }
-    return count;
+    return boxes.length;
   }
 
   function isAlreadyProtected(el) {
@@ -91,26 +115,36 @@
     );
   }
 
+  function climbToFullCard(startEl) {
+    let best = startEl, curr = startEl ? startEl.parentElement : null;
+    for (let depth = 0; depth < 7 && curr && curr !== document.body; depth += 1) {
+      const cls = String(curr.className || "").toLowerCase();
+      if (["MAIN", "HEADER", "FOOTER", "NAV"].includes(curr.tagName) || /header|navbar|menu|topbar/.test(cls)) break;
+      const imgCount = countCardImages(curr);
+      if (imgCount > 1) break;
+      const { w, h } = getVisualSize(curr);
+      const txtLen = (curr.innerText || curr.textContent || "").trim().length;
+      if (h > 720 || w > 620 || txtLen > 950) break;
+      best = curr;
+      if (curr.hasAttribute("data-offer-name") || (cls.includes("offer") && cls.includes("item"))) return curr;
+      if (imgCount === 1 && txtLen >= 8 && h >= 110) {
+        const nextParent = curr.parentElement;
+        if (!nextParent || countCardImages(nextParent) > 1 || getVisualSize(nextParent).w > 540) return curr;
+      }
+      curr = curr.parentElement;
+    }
+    return best;
+  }
+
   function findClosestMediaTextContainer(imgEl) {
     const explicitCard = imgEl.closest(
       "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [data-offer-name], [data-deal-id], [data-ri], .isv-r, .eA0Zlc, .PNCib, [class*='ranking'], [class*='offer'], [class*='casino'], [class*='bookmaker'], [class*='review-item'], [class*='item-casino']"
     );
-    if (explicitCard) return explicitCard;
+    if (explicitCard && countCardImages(explicitCard) <= 1) return explicitCard;
 
-    let bestCard = imgEl, curr = imgEl.parentElement;
-    for (let depth = 0; depth < 6 && curr && curr !== document.body; depth += 1) {
-      const cls = String(curr.className || "").toLowerCase();
-      if (["MAIN", "HEADER", "FOOTER", "NAV"].includes(curr.tagName) || /header|navbar|menu|topbar/.test(cls)) break;
-      if (countCardImages(curr) > 1) break;
-      const ch = curr.clientHeight || 0, txtLen = (curr.innerText || curr.textContent || "").trim().length;
-      if (ch > 750 || txtLen > 950) break;
-      bestCard = curr;
-      if (curr.hasAttribute("data-offer-name") || (cls.includes("offer") && cls.includes("item"))) return curr;
-      curr = curr.parentElement;
-    }
-
+    const bestCard = climbToFullCard(imgEl);
     const bestText = (bestCard.innerText || bestCard.textContent || "").trim();
-    if (bestCard !== imgEl && bestText.length >= 10) return bestCard;
+    if (bestCard !== imgEl && bestText.length >= 6) return bestCard;
 
     if (isBannerLikeImage(imgEl)) {
       const tightAnchor = imgEl.closest("a[href], button");
@@ -153,28 +187,29 @@
     });
 
     const ctaKeywords =
-      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|jackpot88|we88|king88|longfu88|dafabet|me88|vn88|phim sex|sex jav|javhd|jav hd|không che|vlxx|xvideos|xnxx|pornhub|khiêu dâm|clip nóng|phim 18+|mua pod|pod chill|tinh dầu vape|bóng cười|cỏ mỹ|súng bắn bi|dao bấm|kiếm nhật|làm bằng giả|làm bằng đại học|làm cccd giả|đọc trộm tin nhắn|theo dõi ngoại tình|bùa yêu|thỉnh bùa|bùa ngải|kumanthong|máu me kinh dị".split("|");
+      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|jackpot88|we88|king88|longfu88|dafabet|me88|vn88|phim sex|phimsex|sexfull|sex jav|javhd|jav hd|jav sub|không che|vlxx|xvideos|xnxx|pornhub|xhamster|spankbang|redtube|youporn|missav|avhd|khiêu dâm|clip nóng|phim 18+|18+|fuck|fucks|stepmother|stepson|uncensored|milf|hentai|xxx|mua pod|pod chill|tinh dầu vape|bóng cười|cỏ mỹ|súng bắn bi|súng đạn|dao bấm|dao kiếm|katana|kiếm nhật|làm bằng giả|làm bằng đại học|làm cccd giả|đọc trộm tin nhắn|theo dõi ngoại tình|bùa yêu|thỉnh bùa|bùa ngải|kumanthong|máu me kinh dị".split("|");
     root.querySelectorAll("a, button, span, li, div").forEach((btnEl) => {
       if (isAlreadyProtected(btnEl)) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
-      if (txt.length >= 4 && txt.length <= 65 && ctaKeywords.some((kw) => txt.includes(kw))) {
-        const fullCard = btnEl.closest("[data-offer-name], [data-ri], .isv-r, .eA0Zlc, [class*='ranking'], [class*='offer'], [class*='casino'], [class*='card'], [class*='item'], tr, li, article");
-        if (fullCard && fullCard !== document.body && (fullCard.clientHeight || 0) <= 750 && !isAlreadyProtected(fullCard)) candidateSet.add(fullCard);
-        else if (countCardImages(btnEl) === 0) candidateSet.add(btnEl);
+      if (txt.length >= 4 && txt.length <= 280 && ctaKeywords.some((kw) => txt.includes(kw))) {
+        const climbed = climbToFullCard(btnEl);
+        if (climbed && climbed !== document.body && countCardImages(climbed) === 1 && !isAlreadyProtected(climbed)) {
+          candidateSet.add(climbed);
+        } else if (countCardImages(btnEl) === 0 && txt.length <= 95) {
+          candidateSet.add(btnEl);
+        }
       }
     });
 
     root.querySelectorAll("img").forEach((imgEl) => {
       if (isAlreadyProtected(imgEl) || isSafeNavigationOrLogo(imgEl)) return;
-      const cls = String(imgEl.className || "").toLowerCase();
-      const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || Number(imgEl.getAttribute("width")) || 0;
-      const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || Number(imgEl.getAttribute("height")) || 0;
-      if (/xno5ab|favicon|wepbbf|zr758c/.test(cls) || (w > 0 && w <= 42) || (h > 0 && h <= 42)) return;
+      const { w, h } = getVisualSize(imgEl);
+      if (!isSubstantiveCardImage(imgEl) && !isBannerLikeImage(imgEl) && !(w === 0 && h === 0 && imgEl.closest("[data-ad-card]"))) return;
       const container = findClosestMediaTextContainer(imgEl);
       if (!container || isAlreadyProtected(container)) return;
       const containerText = (container.innerText || container.textContent || "").replace(/\s+/g, " ").trim();
-      const hasText = containerText.length >= 4 || Boolean(container.querySelector("p, span, h1, h2, h3, h4, h5, h6, figcaption, a, button, div")) || extractAdjacentSiblingText(imgEl).length > 0;
-      if ((hasText && (w >= 44 || w === 0)) || (w >= 96 && h >= 96) || isBannerLikeImage(imgEl)) candidateSet.add(container);
+      const hasText = containerText.length >= 4 || Boolean(container.querySelector("p, span, h1, h2, h3, h4, h5, h6, figcaption, a, button")) || extractAdjacentSiblingText(imgEl).length > 0;
+      if (hasText || (w >= 72 && h >= 64) || isBannerLikeImage(imgEl)) candidateSet.add(container);
     });
 
     const list = Array.from(candidateSet).filter((el) => el.isConnected && !isAlreadyProtected(el));
@@ -204,7 +239,7 @@
     let imgElement = adContainer.tagName === "IMG" ? adContainer : null;
     if (!imgElement && adContainer.querySelectorAll) {
       const imgs = Array.from(adContainer.querySelectorAll("img"));
-      imgElement = imgs.find((im) => !/xno5ab|favicon|wepbbf/.test(String(im.className || "").toLowerCase()) && ((im.width || im.clientWidth || 99) > 42)) || imgs[0] || null;
+      imgElement = imgs.find((im) => isSubstantiveCardImage(im)) || imgs[0] || null;
     }
     const rawImgUrl = resolveImageSource(imgElement, adContainer);
 
@@ -258,14 +293,19 @@
   function applyHarmfulAdProtection(adContainer, imgElement, prediction) {
     if (!adContainer || !adContainer.isConnected || adContainer.closest(".adshield-warning-overlay")) return;
     let hostContainer = adContainer;
+    if (countCardImages(hostContainer) === 0 || getVisualSize(hostContainer).h < 80) {
+      const upgraded = climbToFullCard(hostContainer);
+      if (upgraded && upgraded !== document.body && countCardImages(upgraded) === 1) hostContainer = upgraded;
+    }
     if (hostContainer.tagName === "IMG" && hostContainer.parentElement) {
       const imgWrapper = document.createElement("div");
       hostContainer.parentElement.insertBefore(imgWrapper, hostContainer);
       imgWrapper.appendChild(hostContainer);
       hostContainer = imgWrapper;
     }
-    if (window.getComputedStyle && window.getComputedStyle(hostContainer).display === "inline") {
-      hostContainer.style.display = "inline-block";
+    if (window.getComputedStyle) {
+      const disp = window.getComputedStyle(hostContainer).display;
+      if (disp === "inline" || disp === "contents") hostContainer.style.display = "block";
     }
     hostContainer.classList.add("adshield-card-wrapper");
     hostContainer.setAttribute("data-adshield-verdict", "harmful");
@@ -273,27 +313,21 @@
     if (imgElement) imgElement.setAttribute("data-adshield-scanned", "true");
     hostContainer.querySelectorAll("*").forEach((desc) => desc.setAttribute("data-adshield-scanned", "true"));
 
-    let targetToBlur = hostContainer.querySelector("[data-ad-media-body]") || imgElement;
-    if (!targetToBlur) {
-      const innerWrap = document.createElement("div");
-      innerWrap.setAttribute("data-ad-media-body", "true");
-      Array.from(hostContainer.childNodes)
-        .filter((node) => !node.classList || !node.classList.contains("adshield-warning-overlay"))
-        .forEach((child) => innerWrap.appendChild(child));
-      hostContainer.appendChild(innerWrap);
-      targetToBlur = innerWrap;
-    }
-
+    const mediaTargets = Array.from(hostContainer.querySelectorAll("img, video, canvas, [data-ad-media-body]"));
+    if (imgElement && !mediaTargets.includes(imgElement)) mediaTargets.push(imgElement);
+    const targetToBlur = hostContainer.querySelector("[data-ad-media-body]") || imgElement || mediaTargets[0] || hostContainer;
     targetToBlur.style.filter = "blur(10px)";
     targetToBlur.classList.add("adshield-blurred-target");
-    if (imgElement && imgElement !== targetToBlur) imgElement.style.filter = "blur(10px)";
+    mediaTargets.forEach((m) => {
+      m.style.filter = "blur(16px) brightness(0.22)";
+      m.classList.add("adshield-blurred-target");
+    });
     hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
 
     const confidencePct = Math.round((Number(prediction.confidence) || 0.89) * 100);
     const reasonText = (Array.isArray(prediction.reasons) && prediction.reasons[0]) || "Mô hình CLIP + Classifier phát hiện dấu hiệu quảng cáo gây hại.";
-    const containerWidth = hostContainer.clientWidth || (imgElement ? imgElement.clientWidth || imgElement.width : 0) || 0;
-    const containerHeight = hostContainer.clientHeight || (imgElement ? imgElement.clientHeight || imgElement.height : 0) || 0;
-    const isMicroBadge = (containerWidth > 0 && containerWidth < 220) || (containerHeight > 0 && containerHeight < 48);
+    const { w: containerWidth, h: containerHeight } = getVisualSize(hostContainer);
+    const isMicroBadge = (containerWidth > 0 && containerWidth < 130) || (containerHeight > 0 && containerHeight < 52);
     const isCompactBanner = !isMicroBadge && containerHeight > 0 && containerHeight < 135;
 
     const overlay = document.createElement("div");
@@ -325,22 +359,16 @@
       targetToBlur.style.filter = isRevealed ? "none" : "blur(10px)";
       targetToBlur.classList.toggle("adshield-blurred-target", !isRevealed);
       targetToBlur.classList.toggle("adshield-unblurred-target", isRevealed);
-      if (imgElement) imgElement.style.filter = isRevealed ? "none" : "blur(10px)";
+      mediaTargets.forEach((m) => {
+        m.style.filter = isRevealed ? "none" : "blur(16px) brightness(0.22)";
+        m.classList.toggle("adshield-blurred-target", !isRevealed);
+        m.classList.toggle("adshield-unblurred-target", isRevealed);
+      });
       overlay.classList.toggle("adshield-overlay-minimized", isRevealed);
       toggleButton.textContent = isRevealed ? openedBtnLabel : closedBtnLabel;
-      if (isRevealed) {
-        hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((ov) => { if (ov !== overlay) ov.remove(); });
-        hostContainer.querySelectorAll(".adshield-blurred-target").forEach((bt) => {
-          bt.style.filter = "none";
-          bt.classList.remove("adshield-blurred-target");
-          bt.classList.add("adshield-unblurred-target");
-        });
-      }
     });
 
-    overlay.appendChild(badge);
-    overlay.appendChild(reasonPara);
-    overlay.appendChild(toggleButton);
+    overlay.append(badge, reasonPara, toggleButton);
     hostContainer.appendChild(overlay);
   }
 
@@ -352,8 +380,7 @@
       const pill = document.createElement("span");
       pill.className = "adshield-safe-pill";
       pill.setAttribute("data-testid", "adshield__safe--badge");
-      const confPct = Math.round((Number(prediction.confidence) || 0.9) * 100);
-      pill.textContent = `An toàn (${confPct}%)`;
+      pill.textContent = `An toàn (${Math.round((Number(prediction.confidence) || 0.9) * 100)}%)`;
       adContainer.appendChild(pill);
     }
   }
@@ -366,16 +393,11 @@
             try {
               if (chrome.runtime && chrome.runtime.lastError) return resolve(null);
               resolve(response && response.ok && response.data ? response.data : null);
-            } catch (_e) {
-              resolve(null);
-            }
+            } catch (_e) { resolve(null); }
           });
-        } catch (_err) {
-          resolve(null);
-        }
+        } catch (_err) { resolve(null); }
       });
     }
-
     const endpoint = customApiUrl || window.ADSHIELD_API_URL || DEFAULT_API_URL;
     try {
       const res = await fetch(endpoint, {
@@ -384,13 +406,10 @@
         body: JSON.stringify({ ad_id: payload.ad_id, text: payload.text, image_url: payload.image_url }),
       });
       return res.ok ? await res.json() : null;
-    } catch (_err) {
-      return null;
-    }
+    } catch (_err) { return null; }
   }
 
   let isScanning = false;
-
   function getLiveDomStats() {
     const harmfulBlurred = document.querySelectorAll("[data-adshield-verdict='harmful']").length;
     const safeVerified = document.querySelectorAll("[data-adshield-verdict='safe']").length;
@@ -401,15 +420,11 @@
     if (isScanning) return getLiveDomStats();
     isScanning = true;
     try {
-      if (options.forceRescan) {
-        document.querySelectorAll("[data-adshield-scanned]").forEach((el) => el.removeAttribute("data-adshield-scanned"));
-      }
+      if (options.forceRescan) document.querySelectorAll("[data-adshield-scanned]").forEach((el) => el.removeAttribute("data-adshield-scanned"));
       const candidates = findAdCandidates(document);
       const summary = getLiveDomStats();
-
       async function processCandidate(adContainer, idx) {
-        if (!adContainer || !adContainer.isConnected || isAlreadyProtected(adContainer)) return;
-        if (adContainer.getAttribute("data-adshield-state") === "inflight") return;
+        if (!adContainer || !adContainer.isConnected || isAlreadyProtected(adContainer) || adContainer.getAttribute("data-adshield-state") === "inflight") return;
         const adData = extractMultimodalAdData(adContainer, idx);
         if (!adData.text && !adData.image_url) return;
         adContainer.setAttribute("data-adshield-state", "inflight");
@@ -430,36 +445,25 @@
           summary.safeVerified += 1;
         }
       }
-
       for (let i = 0; i < candidates.length; i += 6) {
         await Promise.all(candidates.slice(i, i + 6).map((el, j) => processCandidate(el, i + j + 1)));
       }
       return summary;
-    } finally {
-      isScanning = false;
-    }
+    } finally { isScanning = false; }
   }
 
   window.AdShieldContentScanner = { scanPageAds, applyHarmfulAdProtection, WARNING_BUTTON_TEXT };
-
   if (isExtensionContextValid()) {
     try {
       chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-        if (msg && msg.type === "ADSHIELD_GET_TAB_STATUS") {
-          sendResponse({ ok: true, summary: getLiveDomStats(), isScanning });
-          return false;
-        }
-        if (msg && msg.type === "ADSHIELD_SCAN_NOW") {
-          scanPageAds({ forceRescan: true }).then((summary) => sendResponse({ ok: true, summary }));
-          return true;
-        }
+        if (msg && msg.type === "ADSHIELD_GET_TAB_STATUS") { sendResponse({ ok: true, summary: getLiveDomStats(), isScanning }); return false; }
+        if (msg && msg.type === "ADSHIELD_SCAN_NOW") { scanPageAds({ forceRescan: true }).then((summary) => sendResponse({ ok: true, summary })); return true; }
         return false;
       });
     } catch (_e) {}
   }
 
   let debounceTimer = null, observer = null;
-
   function cleanupListeners() {
     isScanning = false;
     if (debounceTimer) clearTimeout(debounceTimer);
@@ -467,25 +471,16 @@
     window.removeEventListener("scroll", scheduleScan);
     document.removeEventListener("load", scheduleScan, true);
     document.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
-    document.querySelectorAll(".adshield-blurred-target").forEach((el) => {
-      el.style.filter = "none";
-      el.classList.remove("adshield-blurred-target");
-    });
+    document.querySelectorAll(".adshield-blurred-target").forEach((el) => { el.style.filter = "none"; el.classList.remove("adshield-blurred-target"); });
     document.querySelectorAll("[data-adshield-scanned]").forEach((el) => el.removeAttribute("data-adshield-scanned"));
   }
   window.__adshieldCleanup = cleanupListeners;
-
   scanPageAds({ forceRescan: true });
-
   function scheduleScan() {
-    if (typeof chrome !== "undefined" && !isExtensionContextValid() && !window.ADSHIELD_API_URL) {
-      cleanupListeners();
-      return;
-    }
+    if (typeof chrome !== "undefined" && !isExtensionContextValid() && !window.ADSHIELD_API_URL) { cleanupListeners(); return; }
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => scanPageAds(), 400);
   }
-
   observer = new MutationObserver(scheduleScan);
   if (document.body) {
     observer.observe(document.body, { childList: true, subtree: true });

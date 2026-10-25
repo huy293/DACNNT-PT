@@ -12,31 +12,29 @@
 
   const DEFAULT_API_URL = "http://127.0.0.1:8000/predict";
   const WARNING_BUTTON_TEXT = "Quảng cáo này có thể chứa nội dung độc hại. Nhấp để xem";
-  const HIDE_AGAIN_BUTTON_TEXT = "Ẩn lại quảng cáo độc hại";
+  const SHORT_REVEAL_TEXT = "Nhấp để xem";
+  const HIDE_AGAIN_BUTTON_TEXT = "Ẩn lại";
+  const CATEGORY_SHORT_LABELS = {
+    gambling_scam: "Quảng cáo Cờ bạc & Cá độ", financial_scam: "Tín dụng đen & Lừa đảo tài chính",
+    medical_misinformation: "Thuốc & TPCN sai sự thật", phishing_and_malware: "Giả mạo & Đánh cắp thông tin",
+    adult_nsfw_scam: "Nội dung 18+ & Nhạy cảm", illegal_contraband_weapons: "Vũ khí & Hàng cấm (Pod/Vape)",
+    forgery_and_deepfake_scam: "Làm giả giấy tờ & Deepfake", cybercrime_spyware_leak: "Gián điệp & Mua bán Data",
+    graphic_violence_selfharm: "Hình ảnh Bạo lực & Kinh dị", superstition_occult_scam: "Mê tín dị đoan & Bùa ngải",
+    hate_and_harassment: "Ngôn từ thù ghét & Công kích", harmful_ad_general: "Nội dung quảng cáo độc hại",
+  };
   const GAMBLING_CONTEXT_TERMS = [
-    "top nhà cái", "nhà cái", "tỷ lệ kèo", "kèo nhà cái", "soi kèo", "cược ngay",
-    "cá cược", "cá độ", "nổ hũ", "tài xỉu", "casino", "xoilac", "cakhia", "8xbet",
-    "fb88", "w88", "m88", "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88",
-    "phim sex", "sex jav", "javhd", "jav hd", "vlxx", "xvideos", "xnxx", "pornhub", "khiêu dâm", "phim 18+",
-    "mua pod", "pod chill", "tinh dầu vape", "bóng cười", "súng bắn bi", "dao bấm", "làm bằng giả", "đọc trộm tin nhắn", "bùa yêu", "bùa ngải",
+    "top nhà cái", "nhà cái", "tỷ lệ kèo", "kèo nhà cái", "soi kèo", "cược ngay", "cá cược", "cá độ", "nổ hũ", "tài xỉu", "casino", "xoilac", "cakhia", "8xbet",
+    "fb88", "w88", "m88", "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88", "phim sex", "sex jav", "javhd", "jav hd", "vlxx", "xvideos", "xnxx",
+    "pornhub", "khiêu dâm", "phim 18+", "mua pod", "pod chill", "tinh dầu vape", "bóng cười", "súng bắn bi", "dao bấm", "làm bằng giả", "đọc trộm tin nhắn", "bùa yêu", "bùa ngải",
   ];
-
-  const MAINSTREAM_PLATFORM_HOSTS =
-    /(?:^|\.)(google\.|bing\.|coccoc\.|yahoo\.|duckduckgo\.|youtube\.|tiktok\.|facebook\.|instagram\.|twitter\.|x\.com|reddit\.|github\.|kaggle\.|wikipedia\.|vnexpress\.|dantri\.|tuoitre\.|thanhnien\.|znews\.|kenh14\.|vietnamnet\.|24h\.com\.vn)/i;
-
+  const MAINSTREAM_PLATFORM_HOSTS = /(?:^|\.)(google\.|bing\.|coccoc\.|yahoo\.|duckduckgo\.|youtube\.|tiktok\.|facebook\.|instagram\.|twitter\.|x\.com|reddit\.|github\.|kaggle\.|wikipedia\.|vnexpress\.|dantri\.|tuoitre\.|thanhnien\.|znews\.|kenh14\.|vietnamnet\.|24h\.com\.vn)/i;
   function detectPageGamblingSignals() {
-    const host = (window.location.hostname || "").toLowerCase();
-    if (MAINSTREAM_PLATFORM_HOSTS.test(host)) return [];
-    const navSample = Array.from(document.querySelectorAll("header, nav, .header, .menu, .navbar, a"))
-      .slice(0, 60)
-      .map((el) => (el.innerText || el.textContent || "").trim())
-      .join(" ");
+    if (MAINSTREAM_PLATFORM_HOSTS.test((window.location.hostname || "").toLowerCase())) return [];
+    const navSample = Array.from(document.querySelectorAll("header, nav, .header, .menu, .navbar, a")).slice(0, 60).map((el) => (el.innerText || el.textContent || "").trim()).join(" ");
     const pageSample = `${document.title || ""} ${window.location.href || ""} ${window.location.pathname || ""} ${navSample}`.toLowerCase();
     return GAMBLING_CONTEXT_TERMS.filter((term) => pageSample.includes(term));
   }
-
-  const SAFE_NAV_PATTERN =
-    /^(live\b|livescore|trận hot|blv\b|hôm nay|ngày mai|tất cả|bóng đá|bóng rổ|tennis|cầu lông|bóng chuyền|lịch thi đấu|highlight|xem lại|bảng xếp hạng|kqbđ|cẩm nang|tuyển dụng)/i;
+  const SAFE_NAV_PATTERN = /^(live\b|livescore|trận hot|blv\b|hôm nay|ngày mai|tất cả|bóng đá|bóng rổ|tennis|cầu lông|bóng chuyền|lịch thi đấu|highlight|xem lại|bảng xếp hạng|kqbđ|cẩm nang|tuyển dụng)/i;
 
   function isSafeNavigationOrLogo(imgEl) {
     try {
@@ -330,7 +328,8 @@
     hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
 
     const confidencePct = Math.round((Number(prediction.confidence) || 0.89) * 100);
-    const reasonText = (Array.isArray(prediction.reasons) && prediction.reasons[0]) || "Mô hình CLIP + Classifier phát hiện dấu hiệu quảng cáo gây hại.";
+    const fullDetailReason = (Array.isArray(prediction.reasons) && prediction.reasons[0]) || WARNING_BUTTON_TEXT;
+    const shortReasonLabel = CATEGORY_SHORT_LABELS[prediction.category] || "Nội dung quảng cáo độc hại";
     const { w: containerWidth, h: containerHeight } = getVisualSize(hostContainer);
     const isMicroBadge = (containerWidth > 0 && containerWidth < 130) || (containerHeight > 0 && containerHeight < 52);
     const isCompactBanner = !isMicroBadge && containerHeight > 0 && containerHeight < 135;
@@ -338,22 +337,23 @@
     const overlay = document.createElement("div");
     overlay.className = isMicroBadge ? "adshield-warning-overlay adshield-overlay-micro" : isCompactBanner ? "adshield-warning-overlay adshield-overlay-compact" : "adshield-warning-overlay";
     overlay.setAttribute("data-testid", "adshield__warning--overlay");
+    overlay.title = fullDetailReason;
 
     const badge = document.createElement("div");
     badge.className = "adshield-badge-danger";
-    badge.textContent = `Cảnh báo AI Đa phương thức • Độ tin cậy ${confidencePct}%`;
+    badge.textContent = `🛡️ Cảnh báo AI • ${confidencePct}%`;
 
     const reasonPara = document.createElement("p");
     reasonPara.className = "adshield-reason-text";
-    reasonPara.textContent = reasonText;
+    reasonPara.textContent = shortReasonLabel;
 
-    const closedBtnLabel = isMicroBadge ? "Quảng cáo độc hại" : WARNING_BUTTON_TEXT;
-    const openedBtnLabel = isMicroBadge ? "Ẩn lại" : HIDE_AGAIN_BUTTON_TEXT;
+    const closedBtnLabel = isMicroBadge ? "Đã ẩn" : SHORT_REVEAL_TEXT;
+    const openedBtnLabel = HIDE_AGAIN_BUTTON_TEXT;
     const toggleButton = document.createElement("button");
     toggleButton.type = "button";
     toggleButton.className = "adshield-reveal-btn";
     toggleButton.setAttribute("data-testid", "adshield__reveal--btn");
-    toggleButton.title = WARNING_BUTTON_TEXT;
+    toggleButton.title = `${shortReasonLabel} — ${WARNING_BUTTON_TEXT}`;
     toggleButton.textContent = closedBtnLabel;
 
     let isRevealed = false;

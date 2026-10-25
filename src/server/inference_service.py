@@ -91,6 +91,16 @@ CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
         ),
         "Nội dung kích động thù địch, xúc phạm hoặc gây hấn đa phương thức (Hateful Meme)",
     ),
+    (
+        "adult_nsfw_scam",
+        (
+            "phim sex", "sex jav", "jav hd", "javhd", "không che", "khong che", "vlxx", "xvideos", "xnxx",
+            "pornhub", "hentai", "khiêu dâm", "đồi trụy", "clip nóng", "lộ clip", "gái gọi", "sugar baby",
+            "onlyfans", "khỏa thân", "phim 18+", "web sex", "xem sex", "sex vietsub", "porn", "nsfw",
+            "jav sub", "bestjavhd",
+        ),
+        "Nội dung/Quảng cáo khiêu dâm, đồi trụy 18+ hoặc dẫn dụ web đen trái thuần phong mỹ tục (Vi phạm Khoản 1 Điều 8 Luật Quảng cáo)",
+    ),
 )
 
 
@@ -281,6 +291,7 @@ class HarmfulAdInferenceService:
                 "nha_cai", "nha-cai", "nhacai", "8xbet", "fb88", "w88", "m88", "kubet",
                 "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88", "188bet", "bk8",
                 "1xbet", "aw8", "jp88", "jackpot88", "we88", "king88", "longfu88", "dafabet", "me88", "vn88",
+                "javhd", "vlxx", "xvideos", "xnxx", "pornhub", "bestjavhd", "phimsex", "nsfw",
             )
             if cue in hint_lower
         )
@@ -304,9 +315,9 @@ class HarmfulAdInferenceService:
             primary_hits += 2
 
         if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):
-            harmful_prob = round(0.45 * raw_prob + 0.55 * min(0.98, 0.82 + 0.03 * (primary_hits + hype_hits)), 4)
+            harmful_prob = round(0.25 * raw_prob + 0.75 * min(0.98, 0.84 + 0.03 * (primary_hits + hype_hits)), 4)
         elif primary_hits == 1 or visual_harm_hits >= 1:
-            harmful_prob = round(0.55 * raw_prob + 0.45 * 0.80, 4)
+            harmful_prob = round(0.30 * raw_prob + 0.70 * 0.78, 4)
         else:
             safe_hits = sum(
                 1 for grp in SAFE_LEXICON_GROUPS for kw in grp if kw in lower_text

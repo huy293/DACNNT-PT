@@ -17,6 +17,7 @@
     "top nhà cái", "nhà cái", "tỷ lệ kèo", "kèo nhà cái", "soi kèo", "cược ngay",
     "cá cược", "cá độ", "nổ hũ", "tài xỉu", "casino", "xoilac", "cakhia", "8xbet",
     "fb88", "w88", "m88", "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88",
+    "phim sex", "sex jav", "javhd", "jav hd", "vlxx", "xvideos", "xnxx", "pornhub", "khiêu dâm", "phim 18+",
   ];
 
   function detectPageGamblingSignals() {
@@ -71,16 +72,12 @@
       const cls = String(im.className || "").toLowerCase();
       const alt = String(im.alt || "").toLowerCase();
       const src = String(im.currentSrc || im.src || "").toLowerCase();
-      if (
-        cls.includes("star") || alt.includes("star") || src.includes("star") ||
-        cls.includes("icon") || alt.includes("icon") || src.includes("icon") ||
-        cls.includes("badge") || alt.includes("badge") || src.includes("badge") ||
-        cls.includes("rank") || alt.includes("rank") || cls.includes("flag") || alt.includes("flag")
-      ) continue;
-      const w = im.naturalWidth || im.width || im.clientWidth || 0;
-      const h = im.naturalHeight || im.height || im.clientHeight || 0;
-      if (h > 0 && h <= 32) continue;
-      if ((w === 0 && h === 0) || w >= 44 || h >= 44) count += 1;
+      if (/star|icon|badge|rank|flag|favicon|xno5ab|wepbbf|zr758c/.test(`${cls} ${alt} ${src}`)) continue;
+      const attrW = Number(im.getAttribute("width")) || 0, attrH = Number(im.getAttribute("height")) || 0;
+      const w = im.naturalWidth || im.width || im.clientWidth || attrW || 0;
+      const h = im.naturalHeight || im.height || im.clientHeight || attrH || 0;
+      if ((w > 0 && w <= 42) || (h > 0 && h <= 42) || (attrW > 0 && attrW <= 42) || (attrH > 0 && attrH <= 42)) continue;
+      if (w >= 48 && h >= 44) count += 1;
     }
     return count;
   }
@@ -95,7 +92,7 @@
 
   function findClosestMediaTextContainer(imgEl) {
     const explicitCard = imgEl.closest(
-      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [data-offer-name], [data-deal-id], [class*='ranking'], [class*='offer'], [class*='casino'], [class*='bookmaker'], [class*='review-item'], [class*='item-casino']"
+      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [data-offer-name], [data-deal-id], [data-ri], .isv-r, .eA0Zlc, .PNCib, [class*='ranking'], [class*='offer'], [class*='casino'], [class*='bookmaker'], [class*='review-item'], [class*='item-casino']"
     );
     if (explicitCard) return explicitCard;
 
@@ -112,7 +109,7 @@
     }
 
     const bestText = (bestCard.innerText || bestCard.textContent || "").trim();
-    if (bestCard !== imgEl && bestText.length >= 20) return bestCard;
+    if (bestCard !== imgEl && bestText.length >= 10) return bestCard;
 
     if (isBannerLikeImage(imgEl)) {
       const tightAnchor = imgEl.closest("a[href], button");
@@ -155,12 +152,12 @@
     });
 
     const ctaKeywords =
-      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|jackpot88|we88|king88|longfu88|dafabet|me88|vn88".split("|");
+      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|jackpot88|we88|king88|longfu88|dafabet|me88|vn88|phim sex|sex jav|javhd|jav hd|không che|vlxx|xvideos|xnxx|pornhub|khiêu dâm|clip nóng|phim 18+".split("|");
     root.querySelectorAll("a, button, span, li, div").forEach((btnEl) => {
       if (isAlreadyProtected(btnEl)) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
       if (txt.length >= 4 && txt.length <= 65 && ctaKeywords.some((kw) => txt.includes(kw))) {
-        const fullCard = btnEl.closest("[data-offer-name], [class*='ranking'], [class*='offer'], [class*='casino'], [class*='card'], [class*='item'], tr, li, article");
+        const fullCard = btnEl.closest("[data-offer-name], [data-ri], .isv-r, .eA0Zlc, [class*='ranking'], [class*='offer'], [class*='casino'], [class*='card'], [class*='item'], tr, li, article");
         if (fullCard && fullCard !== document.body && (fullCard.clientHeight || 0) <= 750 && !isAlreadyProtected(fullCard)) candidateSet.add(fullCard);
         else if (countCardImages(btnEl) === 0) candidateSet.add(btnEl);
       }
@@ -168,12 +165,15 @@
 
     root.querySelectorAll("img").forEach((imgEl) => {
       if (isAlreadyProtected(imgEl) || isSafeNavigationOrLogo(imgEl)) return;
+      const cls = String(imgEl.className || "").toLowerCase();
+      const w = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || Number(imgEl.getAttribute("width")) || 0;
+      const h = imgEl.naturalHeight || imgEl.height || imgEl.clientHeight || Number(imgEl.getAttribute("height")) || 0;
+      if (/xno5ab|favicon|wepbbf|zr758c/.test(cls) || (w > 0 && w <= 42) || (h > 0 && h <= 42)) return;
       const container = findClosestMediaTextContainer(imgEl);
       if (!container || isAlreadyProtected(container)) return;
-      const width = imgEl.naturalWidth || imgEl.width || imgEl.clientWidth || container.clientWidth || 0;
       const containerText = (container.innerText || container.textContent || "").replace(/\s+/g, " ").trim();
       const hasText = containerText.length >= 4 || Boolean(container.querySelector("p, span, h1, h2, h3, h4, h5, h6, figcaption, a, button, div")) || extractAdjacentSiblingText(imgEl).length > 0;
-      if ((hasText && (width >= 44 || width === 0)) || isBannerLikeImage(imgEl)) candidateSet.add(container);
+      if ((hasText && (w >= 44 || w === 0)) || isBannerLikeImage(imgEl)) candidateSet.add(container);
     });
 
     const list = Array.from(candidateSet).filter((el) => el.isConnected && !isAlreadyProtected(el));
@@ -200,7 +200,11 @@
   }
 
   function extractMultimodalAdData(adContainer, index) {
-    const imgElement = adContainer.tagName === "IMG" ? adContainer : adContainer.querySelector("img");
+    let imgElement = adContainer.tagName === "IMG" ? adContainer : null;
+    if (!imgElement && adContainer.querySelectorAll) {
+      const imgs = Array.from(adContainer.querySelectorAll("img"));
+      imgElement = imgs.find((im) => !/xno5ab|favicon|wepbbf/.test(String(im.className || "").toLowerCase()) && ((im.width || im.clientWidth || 99) > 42)) || imgs[0] || null;
+    }
     const rawImgUrl = resolveImageSource(imgElement, adContainer);
 
     const anchorEl = adContainer.tagName === "A" ? adContainer : adContainer.querySelector("a[href]") || adContainer.closest("a[href]");
@@ -250,13 +254,8 @@
     };
   }
 
-  /**
-   * Apply `element.style.filter = "blur(10px)"` and inject the interactive warning button.
-   */
   function applyHarmfulAdProtection(adContainer, imgElement, prediction) {
-    if (!adContainer || !adContainer.isConnected) return;
-    if (adContainer.closest(".adshield-warning-overlay")) return;
-
+    if (!adContainer || !adContainer.isConnected || adContainer.closest(".adshield-warning-overlay")) return;
     let hostContainer = adContainer;
     if (hostContainer.tagName === "IMG" && hostContainer.parentElement) {
       const imgWrapper = document.createElement("div");
@@ -264,37 +263,29 @@
       imgWrapper.appendChild(hostContainer);
       hostContainer = imgWrapper;
     }
-
     if (window.getComputedStyle && window.getComputedStyle(hostContainer).display === "inline") {
       hostContainer.style.display = "inline-block";
     }
     hostContainer.classList.add("adshield-card-wrapper");
     hostContainer.setAttribute("data-adshield-verdict", "harmful");
     hostContainer.setAttribute("data-adshield-scanned", "true");
-    if (imgElement) {
-      imgElement.setAttribute("data-adshield-scanned", "true");
-    }
+    if (imgElement) imgElement.setAttribute("data-adshield-scanned", "true");
     hostContainer.querySelectorAll("*").forEach((desc) => desc.setAttribute("data-adshield-scanned", "true"));
 
     let targetToBlur = hostContainer.querySelector("[data-ad-media-body]") || imgElement;
     if (!targetToBlur) {
       const innerWrap = document.createElement("div");
       innerWrap.setAttribute("data-ad-media-body", "true");
-      const children = Array.from(hostContainer.childNodes).filter(
-        (node) => !node.classList || !node.classList.contains("adshield-warning-overlay")
-      );
-      children.forEach((child) => innerWrap.appendChild(child));
+      Array.from(hostContainer.childNodes)
+        .filter((node) => !node.classList || !node.classList.contains("adshield-warning-overlay"))
+        .forEach((child) => innerWrap.appendChild(child));
       hostContainer.appendChild(innerWrap);
       targetToBlur = innerWrap;
     }
 
-    // Exact Stage 4 Week 7 requirement:
     targetToBlur.style.filter = "blur(10px)";
     targetToBlur.classList.add("adshield-blurred-target");
-    if (imgElement && imgElement !== targetToBlur) {
-      imgElement.style.filter = "blur(10px)";
-    }
-
+    if (imgElement && imgElement !== targetToBlur) imgElement.style.filter = "blur(10px)";
     hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
 
     const confidencePct = Math.round((Number(prediction.confidence) || 0.89) * 100);
@@ -318,7 +309,6 @@
 
     const closedBtnLabel = isMicroBadge ? "Quảng cáo độc hại" : WARNING_BUTTON_TEXT;
     const openedBtnLabel = isMicroBadge ? "Ẩn lại" : HIDE_AGAIN_BUTTON_TEXT;
-
     const toggleButton = document.createElement("button");
     toggleButton.type = "button";
     toggleButton.className = "adshield-reveal-btn";
@@ -331,18 +321,14 @@
       event.preventDefault();
       event.stopPropagation();
       isRevealed = !isRevealed;
-
       targetToBlur.style.filter = isRevealed ? "none" : "blur(10px)";
       targetToBlur.classList.toggle("adshield-blurred-target", !isRevealed);
       targetToBlur.classList.toggle("adshield-unblurred-target", isRevealed);
       if (imgElement) imgElement.style.filter = isRevealed ? "none" : "blur(10px)";
       overlay.classList.toggle("adshield-overlay-minimized", isRevealed);
       toggleButton.textContent = isRevealed ? openedBtnLabel : closedBtnLabel;
-
       if (isRevealed) {
-        hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((ov) => {
-          if (ov !== overlay) ov.remove();
-        });
+        hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((ov) => { if (ov !== overlay) ov.remove(); });
         hostContainer.querySelectorAll(".adshield-blurred-target").forEach((bt) => {
           bt.style.filter = "none";
           bt.classList.remove("adshield-blurred-target");
@@ -404,34 +390,36 @@
 
   let isScanning = false;
 
+  function getLiveDomStats() {
+    const harmfulBlurred = document.querySelectorAll("[data-adshield-verdict='harmful']").length;
+    const safeVerified = document.querySelectorAll("[data-adshield-verdict='safe']").length;
+    return { totalScanned: harmfulBlurred + safeVerified, harmfulBlurred, safeVerified };
+  }
+
   async function scanPageAds(options = {}) {
-    if (isScanning) return { totalScanned: 0, harmfulBlurred: 0, safeVerified: 0 };
+    if (isScanning) return getLiveDomStats();
     isScanning = true;
     try {
       if (options.forceRescan) {
         document.querySelectorAll("[data-adshield-scanned]").forEach((el) => el.removeAttribute("data-adshield-scanned"));
       }
-
       const candidates = findAdCandidates(document);
-      const summary = { totalScanned: 0, harmfulBlurred: 0, safeVerified: 0 };
+      const summary = getLiveDomStats();
 
-      for (let i = 0; i < candidates.length; i += 1) {
-        const adContainer = candidates[i];
-        if (!adContainer || !adContainer.isConnected || isAlreadyProtected(adContainer)) continue;
-        if (adContainer.getAttribute("data-adshield-state") === "inflight") continue;
-        const adData = extractMultimodalAdData(adContainer, i + 1);
-        if (!adData.text && !adData.image_url) continue;
-
+      async function processCandidate(adContainer, idx) {
+        if (!adContainer || !adContainer.isConnected || isAlreadyProtected(adContainer)) return;
+        if (adContainer.getAttribute("data-adshield-state") === "inflight") return;
+        const adData = extractMultimodalAdData(adContainer, idx);
+        if (!adData.text && !adData.image_url) return;
         adContainer.setAttribute("data-adshield-state", "inflight");
         adContainer.setAttribute("data-adshield-scanned", "true");
         const prediction = await requestPrediction(adData, options.apiUrl);
         if (!prediction || !adContainer.isConnected) {
           adContainer.removeAttribute("data-adshield-state");
           adContainer.removeAttribute("data-adshield-scanned");
-          continue;
+          return;
         }
         adContainer.setAttribute("data-adshield-state", "done");
-
         summary.totalScanned += 1;
         if (prediction.is_harmful === true) {
           applyHarmfulAdProtection(adContainer, adData.imgElement, prediction);
@@ -442,6 +430,9 @@
         }
       }
 
+      for (let i = 0; i < candidates.length; i += 6) {
+        await Promise.all(candidates.slice(i, i + 6).map((el, j) => processCandidate(el, i + j + 1)));
+      }
       return summary;
     } finally {
       isScanning = false;
@@ -453,6 +444,10 @@
   if (isExtensionContextValid()) {
     try {
       chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+        if (msg && msg.type === "ADSHIELD_GET_TAB_STATUS") {
+          sendResponse({ ok: true, summary: getLiveDomStats(), isScanning });
+          return false;
+        }
         if (msg && msg.type === "ADSHIELD_SCAN_NOW") {
           scanPageAds({ forceRescan: true }).then((summary) => sendResponse({ ok: true, summary }));
           return true;

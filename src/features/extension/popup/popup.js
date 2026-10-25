@@ -67,19 +67,38 @@
       return;
     }
 
-    if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage({ type: "ADSHIELD_GET_STATS" }, (response) => {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          showOnlyState(elEmpty);
+    if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.query) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs && tabs[0];
+        if (activeTab && activeTab.id && activeTab.url && activeTab.url.startsWith("http")) {
+          chrome.tabs.sendMessage(activeTab.id, { type: "ADSHIELD_GET_TAB_STATUS" }, (tabRes) => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+              triggerTabScan();
+              return;
+            }
+            if (tabRes && tabRes.ok && tabRes.summary && tabRes.summary.totalScanned > 0) {
+              renderStats(tabRes.summary);
+            } else {
+              triggerTabScan();
+            }
+          });
           return;
         }
-        if (response && response.ok) {
-          if (response.settings && response.settings.apiEndpoint) {
-            elInputUrl.value = response.settings.apiEndpoint;
-          }
-          renderStats(response.stats);
-        } else {
-          showOnlyState(elEmpty);
+        if (chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ type: "ADSHIELD_GET_STATS" }, (response) => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+              showOnlyState(elEmpty);
+              return;
+            }
+            if (response && response.ok) {
+              if (response.settings && response.settings.apiEndpoint) {
+                elInputUrl.value = response.settings.apiEndpoint;
+              }
+              renderStats(response.stats);
+            } else {
+              showOnlyState(elEmpty);
+            }
+          });
         }
       });
     } else {
@@ -98,24 +117,33 @@
         }
         chrome.tabs.sendMessage(activeTab.id, { type: "ADSHIELD_SCAN_NOW" }, (res) => {
           if (chrome.runtime && chrome.runtime.lastError) {
-            // Tab was opened before extension reload: auto-inject content.js and scan
             if (chrome.scripting && chrome.scripting.executeScript) {
+              if (chrome.scripting.insertCSS) {
+                chrome.scripting.insertCSS({ target: { tabId: activeTab.id }, files: ["content.css"] }, () => {
+                  void (chrome.runtime && chrome.runtime.lastError);
+                });
+              }
               chrome.scripting.executeScript(
                 { target: { tabId: activeTab.id }, files: ["content.js"] },
                 () => {
                   void (chrome.runtime && chrome.runtime.lastError);
-                  setTimeout(refreshPopupState, 600);
+                  setTimeout(() => {
+                    chrome.tabs.sendMessage(activeTab.id, { type: "ADSHIELD_SCAN_NOW" }, (res2) => {
+                      void (chrome.runtime && chrome.runtime.lastError);
+                      if (res2 && res2.ok && res2.summary) renderStats(res2.summary);
+                    });
+                  }, 700);
                 }
               );
             } else {
-              refreshPopupState();
+              showOnlyState(elEmpty);
             }
             return;
           }
           if (res && res.ok && res.summary) {
             renderStats(res.summary);
           } else {
-            refreshPopupState();
+            showOnlyState(elEmpty);
           }
         });
       });

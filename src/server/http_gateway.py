@@ -242,11 +242,11 @@ def create_stdlib_http_handler(controller: GatewayController):
 
 
 class _BoundedPoolHTTPServer(HTTPServer):
-    """HTTPServer backed by a fixed 2-worker ThreadPoolExecutor to prevent OS thread/OpenMP TLS exhaustion."""
+    """HTTPServer backed by a persistent worker ThreadPoolExecutor to prevent OS thread/OpenMP TLS exhaustion."""
 
     def __init__(self, server_address: Tuple[str, int], RequestHandlerClass: Any) -> None:
         super().__init__(server_address, RequestHandlerClass)
-        self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="adshield-http")
+        self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="adshield-http")
 
     def process_request_thread(self, request: Any, client_address: Any) -> None:
         try:

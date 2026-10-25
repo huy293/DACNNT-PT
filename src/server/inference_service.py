@@ -44,6 +44,32 @@ _INFERENCE_LRU_CACHE: OrderedDict[str, PredictResponseDTO] = OrderedDict()
 _MAX_LRU_CACHE_SIZE = 512
 _TORCH_INFERENCE_LOCK = threading.Lock()
 
+NEWS_WARNING_EXEMPT_TERMS: Tuple[str, ...] = (
+    "báo điện tử", "báo quân đội", "báo công an", "báo chính phủ", "báo công lý", "báo đồng tháp",
+    "báo nhân dân", "báo lao động", "báo người lao động", "báo tuổi trẻ", "báo thanh niên", "báo dân trí",
+    "báo tiền phong", "báo pháp luật", "báo sức khỏe", "báo đại đoàn kết", "báo văn hóa", "báo tin tức",
+    "báo giao thông", "báo xây dựng", "báo nông nghiệp", "báo công thương", "báo tài chính", "báo đầu tư",
+    "báo kiểm sát", "báo bảo vệ pháp luật", "báo phụ nữ", "báo sài gòn", "báo hà nội mới", "báo an ninh",
+    "báo an giang", "báo kiên giang", "báo cần thơ", "báo đà nẵng", "báo hải phòng", "báo quảng ninh",
+    "báo nghệ an", "báo thanh hóa", "báo bình dương", "báo đồng nai", "đài truyền hình", "thông tấn xã",
+    "cổng thông tin", "congly.vn", "qdnd.vn", "cand.com.vn", "baochinhphu.vn", "chinhphu.vn",
+    "baodongthap.vn", "tuoitre.vn", "thanhnien.vn", "dantri.com.vn", "vnexpress.net", "vietnamnet.vn",
+    "laodong.vn", "tienphong.vn", "plo.vn", "nld.com.vn", "vtv.vn", "vov.vn", "nhandan.vn", "baotintuc.vn",
+    "suckhoedoisong.vn", "anninhthudo.vn", "sggp.org.vn", "hanoimoi.vn", "baophapluat.vn", ".gov.vn",
+    "công an tỉnh", "công an tp", "công an thành phố", "công an huyện", "công an quận", "công an thị xã",
+    "công an xã", "công an phường", "công an nhân dân", "bộ công an", "cơ quan công an", "cảnh sát hình sự",
+    "cục an toàn thông tin", "phòng an ninh mạng", "viện kiểm sát", "tòa án nhân dân", "quản lý thị trường",
+    "cảnh báo thủ đoạn", "cảnh báo lừa đảo", "cảnh báo chiêu trò", "cảnh báo tình trạng", "cảnh báo nguy cơ",
+    "bắt đối tượng", "bắt 2 đối tượng", "bắt 3 đối tượng", "bắt 4 đối tượng", "bắt giữ đối tượng",
+    "bắt nhóm đối tượng", "triệt phá đường dây", "triệt phá ổ nhóm", "khởi tố vụ án", "khởi tố bị can",
+    "khởi tố đối tượng", "tạm giữ hình sự", "xử phạt vi phạm", "xử phạt hành chính", "xử phạt hành vi",
+    "xử lý nghiêm", "xử lý biển quảng cáo", "phát hiện nhiều biển quảng cáo", "phát hiện biển quảng cáo",
+    "phát hiện hàng loạt biển quảng cáo", "tháo dỡ biển quảng cáo", "bóc gỡ quảng cáo", "tẩy xóa quảng cáo",
+    "phun sơn quảng cáo", "xịt sơn quảng cáo", "quảng cáo trá hình", "gắn web cá cược", "gắn logo cá cược",
+    "núp bóng quảng cáo", "tuyên truyền phòng chống", "ngang nhiên quảng cáo", "tràn lan biển quảng cáo",
+    "vấn nạn quảng cáo",
+)
+
 CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
     (
         "gambling_scam",
@@ -321,12 +347,24 @@ class HarmfulAdInferenceService:
             primary_hits += 2
 
         safe_hits = sum(1 for grp in SAFE_LEXICON_GROUPS for kw in grp if kw in lower_text)
-        if safe_hits >= 2 and primary_hits <= 1:
+        is_news_or_police_report = (
+            any(term in combined_signals for term in NEWS_WARNING_EXEMPT_TERMS)
+            or bool(re.search(r"bắt\s+(?:giữ\s+)?\d*\s*đối\s+tượng", lower_text))
+        ) and not any(
+            cta in lower_text
+            for cta in ("chơi ngay", "cược ngay", "đăng ký ngay", "nạp lần đầu", "thưởng nạp", "tặng 88k", "link vào nhà cái", "rút tiền về ví")
+        )
+        if is_news_or_police_report:
+            primary_hits = 0
+            visual_harm_hits = 0
+            hype_hits = 0
+            safe_hits += 4
+        elif safe_hits >= 2 and primary_hits <= 1:
             primary_hits = 0
 
-        # Only skip remote HTTP image download when text/URL ALREADY proves the item is harmful
+        # Skip remote HTTP image download when text/URL already proves harmful or is an official news/police report
         is_remote_http_img = raw_hint.startswith(("http://", "https://")) and "/data/images/" not in hint_lower
-        if is_remote_http_img and (primary_hits >= 2 or visual_harm_hits >= 1):
+        if is_remote_http_img and (primary_hits >= 2 or visual_harm_hits >= 1 or is_news_or_police_report):
             img_bytes, img_hint = None, raw_hint
         else:
             img_bytes, img_hint = self._resolve_image_bytes(dto)
@@ -339,23 +377,23 @@ class HarmfulAdInferenceService:
             cache_hasher.update(img_bytes)
         cache_key = cache_hasher.hexdigest()
 
-        if cache_key in _INFERENCE_LRU_CACHE:
-            cached = _INFERENCE_LRU_CACHE.pop(cache_key)
-            _INFERENCE_LRU_CACHE[cache_key] = cached
-            elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
-            return PredictResponseDTO(
-                is_harmful=cached.is_harmful,
-                confidence=cached.confidence,
-                label=cached.label,
-                category=cached.category,
-                reasons=cached.reasons,
-                ad_id=dto.ad_id,
-                model_backend=cached.model_backend,
-                latency_ms=elapsed_ms,
-            )
-
-        should_ocr = bool("/data/images/" in img_hint and len(clean_text) < 15)
         with _TORCH_INFERENCE_LOCK:
+            if cache_key in _INFERENCE_LRU_CACHE:
+                cached = _INFERENCE_LRU_CACHE.pop(cache_key)
+                _INFERENCE_LRU_CACHE[cache_key] = cached
+                elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
+                return PredictResponseDTO(
+                    is_harmful=cached.is_harmful,
+                    confidence=cached.confidence,
+                    label=cached.label,
+                    category=cached.category,
+                    reasons=cached.reasons,
+                    ad_id=dto.ad_id,
+                    model_backend=cached.model_backend,
+                    latency_ms=elapsed_ms,
+                )
+
+            should_ocr = bool("/data/images/" in img_hint and len(clean_text) < 15)
             fused_vec = self.extractor.extract_concatenated_vector(
                 text=clean_text,
                 image_bytes=img_bytes,
@@ -373,7 +411,9 @@ class HarmfulAdInferenceService:
         elif primary_hits == 1 or visual_harm_hits >= 1:
             harmful_prob = round(0.30 * raw_prob + 0.70 * 0.78, 4)
         else:
-            if safe_hits >= 1 or any(
+            if is_news_or_police_report:
+                harmful_prob = round(0.15 * raw_prob + 0.85 * 0.06, 4)
+            elif safe_hits >= 1 or any(
                 s in lower_text for s in ("exploratory data analysis", "confusion matrix", "upvotes", "kaggle")
             ):
                 harmful_prob = round(0.45 * raw_prob + 0.55 * 0.08, 4)
@@ -407,7 +447,8 @@ class HarmfulAdInferenceService:
             model_backend=self.extractor.backend_name,
             latency_ms=elapsed_ms,
         )
-        _INFERENCE_LRU_CACHE[cache_key] = response_dto
-        if len(_INFERENCE_LRU_CACHE) > _MAX_LRU_CACHE_SIZE:
-            _INFERENCE_LRU_CACHE.popitem(last=False)
+        with _TORCH_INFERENCE_LOCK:
+            _INFERENCE_LRU_CACHE[cache_key] = response_dto
+            if len(_INFERENCE_LRU_CACHE) > _MAX_LRU_CACHE_SIZE:
+                _INFERENCE_LRU_CACHE.popitem(last=False)
         return response_dto

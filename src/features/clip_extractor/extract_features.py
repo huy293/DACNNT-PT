@@ -20,9 +20,13 @@ import hashlib
 import io
 import json
 import math
+import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DATASET_PATH = PROJECT_ROOT / "src" / "mocks" / "sample_ads_dataset.json"
@@ -339,8 +343,10 @@ class MultimodalCLIPExtractor:
             return
 
         try:
+            import torch  # type: ignore
             from transformers import CLIPModel, CLIPProcessor  # type: ignore
 
+            torch.set_num_threads(1)
             try:
                 processor = CLIPProcessor.from_pretrained(self.model_name, local_files_only=True)
                 model = CLIPModel.from_pretrained(self.model_name, local_files_only=True)
@@ -479,18 +485,12 @@ def build_features_csv(
         "stage": "Stage 2 (Week 2) - Multimodal Feature Extraction (OpenAI CLIP + Hate-CLIPper Interaction)",
         "extractor_backend": extractor.backend_name,
         "cross_modal_interaction": "Hadamard (v_img ⊙ v_txt) + L1 Discrepancy (|v_img - v_txt|) + Cosine Alignment",
-        "output_csv": str(out_csv),
-        "num_samples": len(rows),
-        "image_embedding_dim": feature_dim // 2,
-        "text_embedding_dim": feature_dim // 2,
-        "feature_dimension": feature_dim,
+        "output_csv": str(out_csv), "num_samples": len(rows),
+        "image_embedding_dim": feature_dim // 2, "text_embedding_dim": feature_dim // 2, "feature_dimension": feature_dim,
     }
 
 
 if __name__ == "__main__":
     import sys
-
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
-    summary = build_features_csv(prefer_clip=True)
-    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8")
+    print(json.dumps(build_features_csv(prefer_clip=True), indent=2, ensure_ascii=False))

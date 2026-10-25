@@ -45,12 +45,14 @@
     return GAMBLING_CONTEXT_TERMS.filter((term) => pageSample.includes(term));
   }
   const SAFE_NAV_PATTERN = /^(live\b|livescore|trận hot|blv\b|hôm nay|ngày mai|tất cả|bóng đá|bóng rổ|tennis|cầu lông|bóng chuyền|lịch thi đấu|highlight|xem lại|bảng xếp hạng|kqbđ|cẩm nang|tuyển dụng)/i;
+  const NEWS_WARNING_EXEMPT_PATTERN = /báo\s+(?:điện\s*tử|quân\s*đội|công\s*an|chính\s*phủ|công\s*lý|đồng\s*tháp|nhân\s*dân|lao\s*động|người\s*lao\s*động|tuổi\s*trẻ|thanh\s*niên|dân\s*trí|tiền\s*phong|pháp\s*luật|sức\s*khỏe|đại\s*đoàn\s*kết|văn\s*hóa|tin\s*tức|giao\s*thông|xây\s*dựng|nông\s*nghiệp|công\s*thương|tài\s*chính|đầu\s*tư|kiểm\s*sát|bảo\s*vệ\s*pháp\s*luật|phụ\s*nữ|sài\s*gòn|hà\s*nội\s*mới|an\s*ninh|an\s*giang|kiên\s*giang|cần\s*thơ|đà\s*nẵng|hải\s*phòng|quảng\s*ninh|nghệ\s*an|thanh\s*hóa|bình\s*dương|đồng\s*nai|vtv|vov)|đài\s+truyền\s+hình|thông\s+tấn\s+xã|ttxvn|cổng\s+thông\s+tin|congly\.vn|qdnd\.vn|cand\.com\.vn|baochinhphu\.vn|chinhphu\.vn|baodongthap\.vn|tuoitre\.vn|thanhnien\.vn|dantri\.com\.vn|vnexpress\.net|vietnamnet\.vn|laodong\.vn|tienphong\.vn|plo\.vn|nld\.com\.vn|vtv\.vn|vov\.vn|nhandan\.vn|baotintuc\.vn|suckhoedoisong\.vn|anninhthudo\.vn|sggp\.org\.vn|hanoimoi\.vn|baophapluat\.vn|kiemsat\.vn|danviet\.vn|znews\.vn|24h\.com\.vn|vtcnews\.vn|baomoi\.com|\.gov\.vn|công\s+an\s+(?:tỉnh|tp|thành\s*phố|huyện|quận|thị\s*xã|xã|phường|nhân\s*dân)|bộ\s+công\s+an|cơ\s+quan\s+công\s+an|cảnh\s+sát\s+hình\s+sự|cục\s+an\s+toàn\s+thông\s+tin|phòng\s+an\s+ninh\s+mạng|viện\s+kiểm\s+sát|tòa\s+án|quản\s+lý\s+thị\s+trường|cảnh\s+báo\s+(?:thủ\s*đoạn|lừa\s*đảo|chiêu\s*trò|tình\s*trạng|hình\s*thức|nguy\s*cơ)|bắt\s+(?:giữ\s+|khẩn\s+cấp\s+|tạm\s+giam\s+)?(?:\d+\s+)?(?:đối\s*tượng|nhóm\s*đối\s*tượng|ổ\s*nhóm|đường\s*dây|nghi\s*phạm)|triệt\s+phá\s+(?:đường\s*dây|ổ\s*nhóm|tụ\s*điểm|chuyên\s*án)|khởi\s+tố\s+(?:vụ\s*án|bị\s*can|đối\s*tượng)|tạm\s+giữ\s+hình\s+sự|xử\s+phạt\s+(?:vi\s*phạm|hành\s*chính|hành\s*vi|đối\s*tượng)|xử\s+lý\s+(?:nghiêm|vi\s*phạm|biển\s*quảng\s*cáo|tình\s*trạng)|phát\s+hiện\s+(?:nhiều\s+|hàng\s+loạt\s+)?(?:biển\s*quảng\s*cáo|bảng\s*hiệu)|tháo\s+dỡ\s+(?:biển\s*quảng\s*cáo|bảng\s*hiệu)|bóc\s+gỡ\s+quảng\s+cáo|tẩy\s+xóa\s+quảng\s+cáo|phun\s+sơn\s+quảng\s+cáo|xịt\s+sơn\s+quảng\s+cáo|quảng\s+cáo\s+trá\s+hình|gắn\s+web\s+cá\s+cược|gắn\s+logo\s+cá\s+cược|núp\s+bóng\s+quảng\s+cáo|tuyên\s+truyền\s+phòng\s+chống|ngang\s+nhiên\s+quảng\s+cáo|tràn\s+lan\s+(?:biển\s+)?quảng\s+cáo|vấn\s+nạn\s+quảng\s+cáo/i;
+  const HARD_AD_CTA_PATTERN = /chơi\s*ngay|cược\s*ngay|đăng\s*ký\s*ngay|nạp\s*lần\s*đầu|thưởng\s*nạp|tặng\s*88k|link\s*vào\s*nhà\s*cái|vòng\s*quay\s*miễn\s*phí|rút\s*tiền\s*về\s*ví/i;
+  function isNewsOrPoliceReport(str) { return NEWS_WARNING_EXEMPT_PATTERN.test(str) && !HARD_AD_CTA_PATTERN.test(str); }
 
   function isRiskySearchOrPageUrl() {
     try {
-      const rawUrl = `${window.location.href || ""} ${window.location.search || ""} ${document.title || ""}`.replace(/\+/g, " ");
-      const decoded = decodeURIComponent(rawUrl);
-      return INSTANT_HARM_RULES.some((r) => r[1].test(decoded));
+      const decoded = decodeURIComponent(`${window.location.href || ""} ${window.location.search || ""} ${document.title || ""}`.replace(/\+/g, " "));
+      return INSTANT_HARM_RULES[0][1].test(decoded) || INSTANT_HARM_RULES[7][1].test(decoded) || (/\bsex\b/i.test(decoded) && !/sex\s+and\s+the\s+city|sex\s+education/i.test(decoded));
     } catch (_e) { return false; }
   }
 
@@ -408,6 +410,7 @@
     const rawUrl = String(adData.image_url || "");
     const imgHint = !rawUrl.startsWith("data:") && !/fbcdn\.net|gstatic\.com|googleusercontent\.com/i.test(rawUrl) ? rawUrl.split("?")[0] : "";
     const combined = `${adData.text || ""} ${imgHint}`;
+    if (isNewsOrPoliceReport(combined)) return { is_harmful: false, confidence: 0.94, category: "safe_commercial_ad", reasons: [] };
     for (let i = 0; i < INSTANT_HARM_RULES.length; i += 1) {
       if (INSTANT_HARM_RULES[i][1].test(combined)) return { is_harmful: true, confidence: 0.92, category: INSTANT_HARM_RULES[i][0], reasons: [WARNING_BUTTON_TEXT] };
     }
@@ -429,8 +432,9 @@
         const instantVerdict = instantLocalPreShield(adData);
         if (instantVerdict) {
           adContainer.setAttribute("data-adshield-state", "done"); adContainer.setAttribute("data-adshield-scanned", "true");
-          applyHarmfulAdProtection(adContainer, adData.imgElement, instantVerdict);
-          summary.totalScanned += 1; summary.harmfulBlurred += 1; return;
+          if (instantVerdict.is_harmful) { applyHarmfulAdProtection(adContainer, adData.imgElement, instantVerdict); summary.harmfulBlurred += 1; }
+          else { markSafeAd(adContainer, instantVerdict, adData.imgElement); summary.safeVerified += 1; }
+          summary.totalScanned += 1; return;
         }
         if (adData.imgElement && !adData.hasLoadedImage && !adContainer.hasAttribute("data-ad-card")) return;
         adContainer.setAttribute("data-adshield-state", "inflight");
@@ -465,9 +469,7 @@
     isScanning = false;
     if (debounceTimer) clearTimeout(debounceTimer);
     if (observer) observer.disconnect();
-    window.removeEventListener("scroll", scheduleScan);
-    window.removeEventListener("DOMContentLoaded", scheduleScan);
-    document.removeEventListener("load", scheduleScan, true);
+    window.removeEventListener("scroll", scheduleScan); window.removeEventListener("DOMContentLoaded", scheduleScan); document.removeEventListener("load", scheduleScan, true);
     document.querySelectorAll(".adshield-warning-overlay, #adshield-preblur-style").forEach((el) => el.remove());
     document.querySelectorAll(".adshield-blurred-target").forEach((el) => { el.style.filter = "none"; el.classList.remove("adshield-blurred-target"); });
     document.querySelectorAll("[data-adshield-scanned]").forEach((el) => el.removeAttribute("data-adshield-scanned"));
@@ -485,9 +487,7 @@
       const added = mutations[i].addedNodes;
       for (let j = 0; j < added.length; j += 1) {
         const node = added[j];
-        if (node && node.nodeType === 1 && !node.classList.contains("adshield-warning-overlay") && !node.classList.contains("adshield-safe-pill")) {
-          if (node.tagName === "IMG" || (node.querySelector && node.querySelector("img, [data-ad-card]"))) { scheduleScan(); return; }
-        }
+        if (node && node.nodeType === 1 && !node.classList.contains("adshield-warning-overlay") && !node.classList.contains("adshield-safe-pill") && (node.tagName === "IMG" || (node.querySelector && node.querySelector("img, [data-ad-card]")))) { scheduleScan(); return; }
       }
     }
   });

@@ -14,7 +14,7 @@
   const EYE_OFF_SVG = '<svg class="adshield-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
   const INSTANT_HARM_RULES = [
     ["adult_nsfw_scam", /phim\s*sex|phimsex|clip\s*sex|clipsex|s\.e\.x|sex\s*jav|jav\s*hd|javhd|jav\s*sub|vlxx|xvideos|xnxx|pornhub|xhamster|spankbang|redtube|youporn|missav|avhd|eporner|sexmoiz|doocliphot|cliphot|avjb|sifangds|anh-bia-phim|con-re-chich|chịch|hiếp\s*dâm|loạn\s*luân|thuốc\s*mê|lầu\s*xanh|lauxanh|thiendia|rphang|viet69|heovl|xlecx|javmost|javtiful|supjav|njav|avgle|brazzers|onlyfans|fansly|chaturbate|stripchat|livejasmin|cam4|bongacams|rule34|nhentai|hanime|hitomi|sexfull|khiêu\s*dâm|gái\s*gọi|sugar\s*baby|phim\s*18\+|phim\s*xxx|phim\s*cấp\s*3|phim\s*heo|không\s*che|stepson\s*fucks|stepmother|uncensored|hentai/i],
-    ["gambling_scam", /8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|sunwin|go88|rikvip|nổ\s*hũ|tài\s*xỉu|nhà\s*cái\s*uy\s*tín|tỷ\s*lệ\s*kèo|cá\s*cược|cá\s*độ|sòng\s*bài/i],
+    ["gambling_scam", /8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|sunwin|go88|rikvip|nổ\s*hũ|tài\s*xỉu|nhà\s*cái\s*uy\s*tín|tỷ\s*lệ\s*kèo/i],
     ["financial_scam", /vay\s*nóng|tín\s*dụng\s*đen|chỉ\s*cần\s*cccd|chỉ\s*cần\s*căn\s*cước|bao\s*nợ\s*xấu|giải\s*ngân\s*5\s*phút/i],
     ["medical_misinformation", /loramen|thần\s*dược|chữa\s*khỏi\s*dứt\s*điểm|thay\s*thế\s*hoàn\s*toàn\s*thuốc\s*chữa\s*bệnh|tăng\s*cường\s*khả\s*năng\s*sinh\s*lý/i],
     ["illegal_contraband_weapons", /mua\s*pod|pod\s*chill|tinh\s*dầu\s*vape|bóng\s*cười|khí\s*n2o|cỏ\s*mỹ|súng\s*bắn\s*bi|súng\s*đạn|dao\s*bấm|dao\s*kiếm|katana/i],
@@ -269,6 +269,12 @@
     return { ad_id: adContainer.getAttribute("data-ad-id") || `dom_ad_${index}`, image_url: rawImgUrl || combinedHint, text: collectedParts.join(" — ").slice(0, 650), imgElement, hasLoadedImage };
   }
 
+  function findCardTextTargets(hostContainer) {
+    if (!hostContainer || !hostContainer.querySelectorAll) return [];
+    const all = Array.from(hostContainer.querySelectorAll("a, h1, h2, h3, h4, p, span, div")).filter((el) => !el.closest(".adshield-warning-overlay, .adshield-safe-pill") && !el.querySelector("img, video, canvas, [data-ad-media-body]") && (el.textContent || "").trim().length >= 3);
+    return all.filter((el) => !all.some((other) => other !== el && other.contains(el)));
+  }
+
   function applyHarmfulAdProtection(adContainer, imgElement, prediction) {
     if (!adContainer || !adContainer.isConnected || adContainer.closest(".adshield-warning-overlay")) return;
     let hostContainer = adContainer;
@@ -276,111 +282,87 @@
       const upgraded = climbToFullCard(hostContainer);
       if (upgraded && upgraded !== document.body && countCardImages(upgraded) === 1) hostContainer = upgraded;
     }
+    for (let s = 0; s < 3 && hostContainer.parentElement && hostContainer.parentElement !== document.body; s += 1) {
+      if (findCardTextTargets(hostContainer).length > 0 || countCardImages(hostContainer.parentElement) > 1) break;
+      hostContainer = hostContainer.parentElement;
+    }
     if (hostContainer.tagName === "IMG" && hostContainer.parentElement) {
-      if (hostContainer.parentElement.classList.contains("adshield-card-wrapper")) {
-        hostContainer = hostContainer.parentElement;
-      } else {
-        const imgWrapper = document.createElement("div");
-        hostContainer.parentElement.insertBefore(imgWrapper, hostContainer);
-        imgWrapper.appendChild(hostContainer);
-        hostContainer = imgWrapper;
-      }
+      if (hostContainer.parentElement.classList.contains("adshield-card-wrapper")) hostContainer = hostContainer.parentElement;
+      else { const imgWrapper = document.createElement("div"); hostContainer.parentElement.insertBefore(imgWrapper, hostContainer); imgWrapper.appendChild(hostContainer); hostContainer = imgWrapper; }
     }
     if (window.getComputedStyle) {
       const disp = window.getComputedStyle(hostContainer).display;
       if (disp === "inline" || disp === "contents") hostContainer.style.display = "block";
     }
     hostContainer.classList.add("adshield-card-wrapper");
-    hostContainer.setAttribute("data-adshield-verdict", "harmful");
-    hostContainer.setAttribute("data-adshield-scanned", "true");
+    hostContainer.setAttribute("data-adshield-verdict", "harmful"); hostContainer.setAttribute("data-adshield-scanned", "true");
     if (imgElement) imgElement.setAttribute("data-adshield-scanned", "true");
 
     const mediaTargets = Array.from(hostContainer.querySelectorAll("img, video, canvas, [data-ad-media-body]"));
     if (imgElement && !mediaTargets.includes(imgElement)) mediaTargets.push(imgElement);
+    const textTargets = findCardTextTargets(hostContainer);
+    const isTextOnly = prediction.harm_modality === "text_only" && textTargets.length > 0 && !hostContainer.hasAttribute("data-ad-card");
     const childTargets = mediaTargets.length > 0 ? mediaTargets : Array.from(hostContainer.children).filter((c) => !c.classList.contains("adshield-warning-overlay"));
     const targetToBlur = hostContainer.querySelector("[data-ad-media-body]") || imgElement || childTargets[0] || null;
-    if (targetToBlur && targetToBlur !== hostContainer) { targetToBlur.style.filter = "blur(10px)"; targetToBlur.classList.add("adshield-blurred-target"); }
-    childTargets.forEach((m) => { if (m !== hostContainer) { m.style.filter = "blur(16px) brightness(0.22)"; m.classList.add("adshield-blurred-target"); } });
-    hostContainer.style.filter = "none";
-    hostContainer.classList.remove("adshield-blurred-target", "adshield-inflight-blur");
+
+    if (isTextOnly) {
+      mediaTargets.forEach((m) => { m.style.filter = "none"; m.classList.remove("adshield-blurred-target", "adshield-inflight-blur"); m.setAttribute("data-adshield-verdict", "safe"); });
+      textTargets.forEach((t) => { t.style.filter = "blur(6px)"; t.classList.add("adshield-blurred-text"); });
+    } else {
+      if (targetToBlur && targetToBlur !== hostContainer) { targetToBlur.style.filter = "blur(10px)"; targetToBlur.classList.add("adshield-blurred-target"); }
+      childTargets.forEach((m) => { if (m !== hostContainer) { m.style.filter = "blur(16px) brightness(0.22)"; m.classList.add("adshield-blurred-target"); } });
+      if (prediction.harm_modality !== "image_only") textTargets.forEach((t) => { t.style.filter = "blur(6px)"; t.classList.add("adshield-blurred-text"); });
+    }
+    hostContainer.style.filter = "none"; hostContainer.classList.remove("adshield-blurred-target", "adshield-inflight-blur");
     hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
 
     const confidencePct = Math.round((Number(prediction.confidence) || 0.89) * 100);
     const fullDetailReason = (Array.isArray(prediction.reasons) && prediction.reasons[0]) || WARNING_BUTTON_TEXT;
     const shortReasonLabel = CATEGORY_SHORT_LABELS[prediction.category] || "Nội dung quảng cáo độc hại";
     const { w: containerWidth, h: containerHeight } = getVisualSize(hostContainer);
-    const isMicroBadge = (containerWidth > 0 && containerWidth < 130) || (containerHeight > 0 && containerHeight < 52);
-    const isCompactBanner = !isMicroBadge && containerHeight > 0 && containerHeight < 135;
+    const isMicroBadge = !isTextOnly && ((containerWidth > 0 && containerWidth < 130) || (containerHeight > 0 && containerHeight < 52));
+    const isCompactBanner = !isTextOnly && !isMicroBadge && containerHeight > 0 && containerHeight < 135;
 
     const overlay = document.createElement("div");
-    overlay.className = isMicroBadge ? "adshield-warning-overlay adshield-overlay-micro" : isCompactBanner ? "adshield-warning-overlay adshield-overlay-compact" : "adshield-warning-overlay";
-    overlay.setAttribute("data-testid", "adshield__warning--overlay");
-    overlay.title = fullDetailReason;
+    overlay.className = isTextOnly ? "adshield-warning-overlay adshield-overlay-text-only" : isMicroBadge ? "adshield-warning-overlay adshield-overlay-micro" : isCompactBanner ? "adshield-warning-overlay adshield-overlay-compact" : "adshield-warning-overlay";
+    overlay.setAttribute("data-testid", "adshield__warning--overlay"); overlay.title = fullDetailReason;
 
-    const badge = document.createElement("div");
-    badge.className = "adshield-badge-danger";
-    badge.innerHTML = `${SHIELD_SVG}<span>Cảnh báo AI • ${confidencePct}%</span>`;
-
-    const reasonPara = document.createElement("p");
-    reasonPara.className = "adshield-reason-text";
-    reasonPara.textContent = shortReasonLabel;
+    const badge = document.createElement("div"); badge.className = "adshield-badge-danger";
+    badge.innerHTML = isTextOnly ? `${SHIELD_SVG}<span>Đề tài nhạy cảm • ${confidencePct}%</span>` : `${SHIELD_SVG}<span>Cảnh báo AI • ${confidencePct}%</span>`;
+    const reasonPara = document.createElement("p"); reasonPara.className = "adshield-reason-text"; reasonPara.textContent = shortReasonLabel;
 
     const closedBtnHtml = isMicroBadge ? "<span>Đã ẩn</span>" : `${EYE_SVG}<span>${SHORT_REVEAL_TEXT}</span>`;
     const openedBtnHtml = `${EYE_OFF_SVG}<span>${HIDE_AGAIN_BUTTON_TEXT}</span>`;
     const toggleButton = document.createElement("button");
-    toggleButton.type = "button";
-    toggleButton.className = "adshield-reveal-btn";
-    toggleButton.setAttribute("data-testid", "adshield__reveal--btn");
-    toggleButton.title = `${shortReasonLabel} — ${WARNING_BUTTON_TEXT}`;
+    toggleButton.type = "button"; toggleButton.className = "adshield-reveal-btn";
+    toggleButton.setAttribute("data-testid", "adshield__reveal--btn"); toggleButton.title = `${shortReasonLabel} — ${WARNING_BUTTON_TEXT}`;
     toggleButton.innerHTML = closedBtnHtml;
 
     let isRevealed = false;
     toggleButton.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      isRevealed = !isRevealed;
-      hostContainer.style.filter = "none";
-      hostContainer.classList.remove("adshield-blurred-target", "adshield-inflight-blur");
-      if (targetToBlur && targetToBlur !== hostContainer) {
-        targetToBlur.style.filter = isRevealed ? "none" : "blur(10px)";
-        targetToBlur.classList.toggle("adshield-blurred-target", !isRevealed);
-        targetToBlur.classList.toggle("adshield-unblurred-target", isRevealed);
+      event.preventDefault(); event.stopPropagation(); isRevealed = !isRevealed;
+      hostContainer.style.filter = "none"; hostContainer.classList.remove("adshield-blurred-target", "adshield-inflight-blur");
+      if (!isTextOnly) {
+        if (targetToBlur && targetToBlur !== hostContainer) { targetToBlur.style.filter = isRevealed ? "none" : "blur(10px)"; targetToBlur.classList.toggle("adshield-blurred-target", !isRevealed); targetToBlur.classList.toggle("adshield-unblurred-target", isRevealed); }
+        childTargets.forEach((m) => { if (m !== hostContainer) { m.style.filter = isRevealed ? "none" : "blur(16px) brightness(0.22)"; m.classList.toggle("adshield-blurred-target", !isRevealed); m.classList.toggle("adshield-unblurred-target", isRevealed); } });
       }
-      childTargets.forEach((m) => {
-        if (m !== hostContainer) {
-          m.style.filter = isRevealed ? "none" : "blur(16px) brightness(0.22)";
-          m.classList.toggle("adshield-blurred-target", !isRevealed);
-          m.classList.toggle("adshield-unblurred-target", isRevealed);
-        }
-      });
-      if (isRevealed) {
-        hostContainer.querySelectorAll(".adshield-blurred-target, .adshield-inflight-blur").forEach((el) => {
-          el.style.filter = "none";
-          el.classList.remove("adshield-blurred-target", "adshield-inflight-blur");
-          el.classList.add("adshield-unblurred-target");
-        });
-      }
-      overlay.classList.toggle("adshield-overlay-minimized", isRevealed);
-      toggleButton.innerHTML = isRevealed ? openedBtnHtml : closedBtnHtml;
+      textTargets.forEach((t) => { if (isTextOnly || prediction.harm_modality !== "image_only") { t.style.filter = isRevealed ? "none" : "blur(6px)"; t.classList.toggle("adshield-blurred-text", !isRevealed); } });
+      if (isRevealed) hostContainer.querySelectorAll(".adshield-blurred-target, .adshield-inflight-blur, .adshield-blurred-text").forEach((el) => { el.style.filter = "none"; el.classList.remove("adshield-blurred-target", "adshield-inflight-blur", "adshield-blurred-text"); el.classList.add("adshield-unblurred-target"); });
+      overlay.classList.toggle("adshield-overlay-minimized", isRevealed); toggleButton.innerHTML = isRevealed ? openedBtnHtml : closedBtnHtml;
     });
 
-    overlay.append(badge, reasonPara, toggleButton);
-    hostContainer.appendChild(overlay);
+    overlay.append(badge, reasonPara, toggleButton); hostContainer.appendChild(overlay);
   }
 
   function markSafeAd(adContainer, prediction, imgElement) {
-    adContainer.setAttribute("data-adshield-verdict", "safe");
-    adContainer.setAttribute("data-adshield-scanned", "true");
+    adContainer.setAttribute("data-adshield-verdict", "safe"); adContainer.setAttribute("data-adshield-scanned", "true");
     if (imgElement) { imgElement.setAttribute("data-adshield-verdict", "safe"); imgElement.setAttribute("data-adshield-scanned", "true"); }
     if (adContainer.querySelectorAll) adContainer.querySelectorAll("img").forEach((im) => im.setAttribute("data-adshield-verdict", "safe"));
     if (!adContainer.hasAttribute("data-ad-card")) return;
     adContainer.classList.add("adshield-card-wrapper");
     if (!adContainer.querySelector(".adshield-safe-pill")) {
-      const pill = document.createElement("span");
-      pill.className = "adshield-safe-pill";
-      pill.setAttribute("data-testid", "adshield__safe--badge");
-      pill.textContent = `An toàn (${Math.round((Number(prediction.confidence) || 0.9) * 100)}%)`;
-      adContainer.appendChild(pill);
+      const pill = document.createElement("span"); pill.className = "adshield-safe-pill"; pill.setAttribute("data-testid", "adshield__safe--badge");
+      pill.textContent = `An toàn (${Math.round((Number(prediction.confidence) || 0.9) * 100)}%)`; adContainer.appendChild(pill);
     }
   }
 
@@ -410,11 +392,16 @@
     const rawUrl = String(adData.image_url || "");
     const imgHint = !rawUrl.startsWith("data:") && !/fbcdn\.net|gstatic\.com|googleusercontent\.com/i.test(rawUrl) ? rawUrl.split("?")[0] : "";
     const combined = `${adData.text || ""} ${imgHint}`;
-    if (isNewsOrPoliceReport(combined)) return { is_harmful: false, confidence: 0.94, category: "safe_commercial_ad", reasons: [] };
-    for (let i = 0; i < INSTANT_HARM_RULES.length; i += 1) {
-      if (INSTANT_HARM_RULES[i][1].test(combined)) return { is_harmful: true, confidence: 0.92, category: INSTANT_HARM_RULES[i][0], reasons: [WARNING_BUTTON_TEXT] };
+    if (isNewsOrPoliceReport(combined)) {
+      if (/cá\s*cược|cá\s*độ|cờ\s*bạc|nhà\s*cái|tín\s*dụng\s*đen|vay\s*nóng|khiêu\s*dâm|web\s*đen|bùa\s*ngải/i.test(adData.text || "")) {
+        return { is_harmful: true, confidence: 0.88, category: "gambling_scam", harm_modality: "text_only", reasons: [WARNING_BUTTON_TEXT] };
+      }
+      return { is_harmful: false, confidence: 0.94, category: "safe_commercial_ad", harm_modality: "none", reasons: [] };
     }
-    if (/\bsex\b/i.test(combined) && !/sex\s+and\s+the\s+city|sex\s+education/i.test(combined)) return { is_harmful: true, confidence: 0.92, category: "adult_nsfw_scam", reasons: [WARNING_BUTTON_TEXT] };
+    for (let i = 0; i < INSTANT_HARM_RULES.length; i += 1) {
+      if (INSTANT_HARM_RULES[i][1].test(combined)) return { is_harmful: true, confidence: 0.92, category: INSTANT_HARM_RULES[i][0], harm_modality: "both", reasons: [WARNING_BUTTON_TEXT] };
+    }
+    if (/\bsex\b/i.test(combined) && !/sex\s+and\s+the\s+city|sex\s+education/i.test(combined)) return { is_harmful: true, confidence: 0.92, category: "adult_nsfw_scam", harm_modality: "both", reasons: [WARNING_BUTTON_TEXT] };
     return null;
   }
 

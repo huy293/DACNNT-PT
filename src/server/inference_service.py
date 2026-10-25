@@ -354,11 +354,14 @@ class HarmfulAdInferenceService:
             cta in lower_text
             for cta in ("chơi ngay", "cược ngay", "đăng ký ngay", "nạp lần đầu", "thưởng nạp", "tặng 88k", "link vào nhà cái", "rút tiền về ví")
         )
+        raw_text_hits = primary_hits
         if is_news_or_police_report:
-            primary_hits = 0
             visual_harm_hits = 0
             hype_hits = 0
-            safe_hits += 4
+            if raw_text_hits >= 1:
+                primary_hits = 1
+            else:
+                safe_hits += 4
         elif safe_hits >= 2 and primary_hits <= 1:
             primary_hits = 0
 
@@ -391,6 +394,7 @@ class HarmfulAdInferenceService:
                     ad_id=dto.ad_id,
                     model_backend=cached.model_backend,
                     latency_ms=elapsed_ms,
+                    harm_modality=cached.harm_modality,
                 )
 
             should_ocr = bool("/data/images/" in img_hint and len(clean_text) < 15)
@@ -403,7 +407,7 @@ class HarmfulAdInferenceService:
             raw_prob = predict_proba_with_weights(fused_vec, self.model_artifact)
 
             visual_probe = {"is_visual_harm": False, "visual_category": "safe_commercial_ad", "visual_prob": 0.0, "visual_reason": ""}
-            if img_bytes and safe_hits == 0 and primary_hits == 0 and visual_harm_hits == 0 and (len(clean_text) < 12 or "/hm_" not in hint_lower):
+            if img_bytes and not is_news_or_police_report and safe_hits == 0 and visual_harm_hits == 0 and (len(clean_text) < 12 or "/hm_" not in hint_lower):
                 visual_probe = probe_clip_visual_harm_concepts(self.extractor, img_bytes, img_hint)
 
         if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):
@@ -435,8 +439,29 @@ class HarmfulAdInferenceService:
             if v_reason and v_reason not in reasons:
                 reasons.insert(0, v_reason)
                 reasons = [r for r in reasons if "vượt ngưỡng phân loại độc hại của mô hình" not in r] or [v_reason]
-        elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
 
+        is_image_harmful = bool(
+            not is_news_or_police_report
+            and (
+                visual_probe.get("is_visual_harm")
+                or visual_harm_hits >= 1
+                or "/data/images/" in hint_lower
+                or has_bookmaker_pattern
+                or has_deposit_bonus_pattern
+                or (primary_hits >= 2 and hype_hits >= 1)
+            )
+        )
+        is_text_harmful = bool(primary_hits >= 1)
+        if not is_harmful:
+            harm_modality = "none"
+        elif is_text_harmful and not is_image_harmful:
+            harm_modality = "text_only"
+        elif is_image_harmful and not is_text_harmful:
+            harm_modality = "image_only"
+        else:
+            harm_modality = "both"
+
+        elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
         response_dto = PredictResponseDTO(
             is_harmful=is_harmful,
             confidence=confidence,
@@ -446,6 +471,7 @@ class HarmfulAdInferenceService:
             ad_id=dto.ad_id,
             model_backend=self.extractor.backend_name,
             latency_ms=elapsed_ms,
+            harm_modality=harm_modality,
         )
         with _TORCH_INFERENCE_LOCK:
             _INFERENCE_LRU_CACHE[cache_key] = response_dto

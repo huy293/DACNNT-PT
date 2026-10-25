@@ -39,6 +39,7 @@ class PredictResponseDTO:
     ad_id: Optional[str] = None
     model_backend: str = "lightweight-multimodal-64d"
     latency_ms: float = 0.0
+    harm_modality: str = "both"
 
     def to_dict(self) -> Dict[str, Any]:
         payload = asdict(self)

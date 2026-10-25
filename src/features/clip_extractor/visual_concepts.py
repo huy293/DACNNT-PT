@@ -281,7 +281,7 @@ def probe_clip_visual_harm_concepts(
                 visual_prob=round(min(0.95, max(0.68, weapon_p)), 4),
                 visual_reason=f"{VISUAL_CONCEPT_PROMPTS[4][2]} (CLIP Weapon/Drug={weapon_p:.2f})",
             )
-        elif casino_p >= 0.72 and casino_p > safe_p * 1.35 and not image_hint.startswith("data/images/hm_"):
+        elif casino_p >= 0.30 and casino_p > safe_p * 0.65 and not image_hint.startswith("data/images/hm_"):
             verdict.update(
                 is_visual_harm=True,
                 visual_category="gambling_scam",

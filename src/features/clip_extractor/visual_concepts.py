@@ -136,6 +136,11 @@ def compute_opencv_skin_and_gore_ratios(image_bytes: Optional[bytes]) -> Dict[st
         import cv2  # type: ignore
         import numpy as np  # type: ignore
 
+        try:
+            cv2.setNumThreads(0)
+        except Exception:
+            pass
+
         arr = np.frombuffer(image_bytes, dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if img is None or img.shape[0] < 32 or img.shape[1] < 32:
@@ -155,21 +160,6 @@ def compute_opencv_skin_and_gore_ratios(image_bytes: Optional[bytes]) -> Dict[st
         skin_hsv1 = cv2.inRange(hsv, (0, 10, 50), (25, 190, 255))
         skin_hsv2 = cv2.inRange(hsv, (165, 10, 50), (180, 190, 255))
         skin_mask = cv2.bitwise_and(skin_mask_ycrcb, cv2.bitwise_or(skin_hsv1, skin_hsv2))
-
-        # Face-Skin Subtraction: mask out close-up human faces & neck so close-up face selfies/vlogs are never counted as body nudity
-        try:
-            if "face_cascade" not in _VISUAL_CONCEPT_CACHE:
-                cascade_path = getattr(cv2.data, "haarcascades", "") + "haarcascade_frontalface_default.xml"
-                _VISUAL_CONCEPT_CACHE["face_cascade"] = cv2.CascadeClassifier(cascade_path)
-            face_cascade = _VISUAL_CONCEPT_CACHE.get("face_cascade")
-            if face_cascade is not None and not face_cascade.empty():
-                gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-                faces = face_cascade.detectMultiScale(gray_roi, scaleFactor=1.15, minNeighbors=6, minSize=(36, 36))
-                for fx, fy, fw, fh in faces:
-                    if float(fw * fh) >= total_px * 0.10:
-                        skin_mask[max(0, fy) : min(roi.shape[0], int(fy + fh * 1.25)), max(0, fx) : min(roi.shape[1], fx + fw)] = 0
-        except Exception:
-            pass
 
         result["skin_ratio"] = round(float(np.count_nonzero(skin_mask)) / total_px, 4)
 
@@ -253,8 +243,12 @@ def probe_clip_visual_harm_concepts(
 
         nsfw_p = float(probs[0] + probs[1] + probs[2])
         gore_p, weapon_p, casino_p = float(probs[3]), float(probs[4]), float(probs[5])
+        face_portrait_p = float(probs[7])
         safe_p = float(sum(probs[6:]))
         verdict["safe_prob"] = round(safe_p, 4)
+        if face_portrait_p >= 0.18 and nsfw_p < 0.35:
+            skin_ratio = round(max(0.0, skin_ratio - 0.45), 4)
+            verdict["skin_ratio"] = skin_ratio
 
         # Combine CLIP zero-shot visual concept probabilities with OpenCV skin/gore ratios.
         # Non-skin graphics/infographics (Skin=0%) remain 100% blocked from triggering NSFW.

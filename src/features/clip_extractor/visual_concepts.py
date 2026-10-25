@@ -45,6 +45,11 @@ VISUAL_CONCEPT_PROMPTS: Tuple[Tuple[str, str, str], ...] = (
     ),
     (
         "safe_commercial_ad",
+        "a close-up face portrait, headshot selfie, human face talking to camera, skincare makeup vlog, or livestream",
+        "Hình ảnh cận mặt/selfie/vlog an toàn",
+    ),
+    (
+        "safe_commercial_ad",
         "a photo of nature landscape, blue sky, green grass, trees, street, vehicle, motorcycle, or outdoor scene",
         "Hình ảnh phong cảnh/môi trường an toàn",
     ),
@@ -139,6 +144,21 @@ def compute_opencv_skin_and_gore_ratios(image_bytes: Optional[bytes]) -> Dict[st
         skin_mask_ycrcb = cv2.inRange(ycrcb, (40, 135, 80), (250, 172, 125))
         skin_mask_hsv = cv2.inRange(hsv, (0, 28, 60), (22, 170, 255))
         skin_mask = cv2.bitwise_and(skin_mask_ycrcb, skin_mask_hsv)
+
+        # Face-Skin Subtraction: mask out detected human faces & neck so close-up face selfies/vlogs are never counted as body nudity
+        try:
+            if "face_cascade" not in _VISUAL_CONCEPT_CACHE:
+                cascade_path = getattr(cv2.data, "haarcascades", "") + "haarcascade_frontalface_default.xml"
+                _VISUAL_CONCEPT_CACHE["face_cascade"] = cv2.CascadeClassifier(cascade_path)
+            face_cascade = _VISUAL_CONCEPT_CACHE.get("face_cascade")
+            if face_cascade is not None and not face_cascade.empty():
+                gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray_roi, scaleFactor=1.15, minNeighbors=4, minSize=(28, 28))
+                for fx, fy, fw, fh in faces:
+                    skin_mask[max(0, fy) : min(roi.shape[0], int(fy + fh * 1.35)), max(0, fx) : min(roi.shape[1], fx + fw)] = 0
+        except Exception:
+            pass
+
         result["skin_ratio"] = round(float(np.count_nonzero(skin_mask)) / total_px, 4)
 
         blood_low = cv2.inRange(hsv, (0, 150, 35), (8, 255, 195))

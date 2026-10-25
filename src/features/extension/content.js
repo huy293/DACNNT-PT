@@ -13,7 +13,7 @@
   const EYE_SVG = '<svg class="adshield-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>';
   const EYE_OFF_SVG = '<svg class="adshield-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
   const INSTANT_HARM_RULES = [
-    ["adult_nsfw_scam", /phim\s*sex|phimsex|sex\s*jav|jav\s*hd|javhd|jav\s*sub|vlxx|xvideos|xnxx|pornhub|xhamster|spankbang|sexfull|khiêu\s*dâm|phim\s*18\+|phim\s*xxx|phim\s*cấp\s*3|phim\s*heo|không\s*che|stepson\s*fucks|stepmother|uncensored|hentai/i],
+    ["adult_nsfw_scam", /phim\s*sex|phimsex|clip\s*sex|clipsex|s\.e\.x|sex\s*jav|jav\s*hd|javhd|jav\s*sub|vlxx|xvideos|xnxx|pornhub|xhamster|spankbang|redtube|youporn|missav|avhd|eporner|sexmoiz|doocliphot|cliphot|avjb|sifangds|anh-bia-phim|con-re-chich|chịch|hiếp\s*dâm|loạn\s*luân|thuốc\s*mê|lầu\s*xanh|lauxanh|thiendia|rphang|viet69|heovl|xlecx|javmost|javtiful|supjav|njav|avgle|brazzers|onlyfans|fansly|chaturbate|stripchat|livejasmin|cam4|bongacams|rule34|nhentai|hanime|hitomi|sexfull|khiêu\s*dâm|gái\s*gọi|sugar\s*baby|phim\s*18\+|phim\s*xxx|phim\s*cấp\s*3|phim\s*heo|không\s*che|stepson\s*fucks|stepmother|uncensored|hentai/i],
     ["gambling_scam", /8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|sunwin|go88|rikvip|nổ\s*hũ|tài\s*xỉu|nhà\s*cái\s*uy\s*tín|tỷ\s*lệ\s*kèo|cá\s*cược|cá\s*độ|sòng\s*bài/i],
     ["financial_scam", /vay\s*nóng|tín\s*dụng\s*đen|chỉ\s*cần\s*cccd|chỉ\s*cần\s*căn\s*cước|bao\s*nợ\s*xấu|giải\s*ngân\s*5\s*phút/i],
     ["medical_misinformation", /loramen|thần\s*dược|chữa\s*khỏi\s*dứt\s*điểm|thay\s*thế\s*hoàn\s*toàn\s*thuốc\s*chữa\s*bệnh|tăng\s*cường\s*khả\s*năng\s*sinh\s*lý/i],
@@ -66,7 +66,7 @@
   function isSafeNavigationOrLogo(imgEl) {
     if (!imgEl || !imgEl.closest) return false;
     if (/messenger\.com|zalo\.me/.test((window.location.hostname || "").toLowerCase())) return true;
-    if (imgEl.closest("[contenteditable='true'], [role='textbox'], [role='dialog'], [role='row'], [role='grid'], [role='log'], [aria-label*='Tin nhắn'], [aria-label*='Messages'], [aria-label*='Chat']")) return true;
+    if (imgEl.closest("form, [role='search'], [role='combobox'], [aria-label*='Tìm kiếm'], [aria-label*='Search'], input, textarea, select, [contenteditable='true'], [role='textbox'], [role='dialog'], [role='row'], [role='grid'], [role='log'], [aria-label*='Tin nhắn'], [aria-label*='Messages'], [aria-label*='Chat']")) return true;
     try {
       const r = imgEl.getBoundingClientRect();
       if (r.width > 0 && r.width <= 240 && r.height <= 75 && r.top >= 0 && r.top < 75 && r.left >= 0 && r.left < 260) return true;
@@ -262,7 +262,8 @@
     if (pageSignals.length > 0) collectedParts.push(`Ngữ cảnh trang web cá cược: ${pageSignals.slice(0, 4).join(", ")}`);
     if (linkHref && !linkHref.startsWith("javascript:")) collectedParts.push(linkHref);
     const combinedHint = [rawImgUrl, linkHref, String(adContainer.className || ""), adContainer.id || ""].filter(Boolean).join(" ");
-    return { ad_id: adContainer.getAttribute("data-ad-id") || `dom_ad_${index}`, image_url: rawImgUrl || combinedHint, text: collectedParts.join(" — ").slice(0, 650), imgElement };
+    const hasLoadedImage = Boolean(rawImgUrl) && (!imgElement || !(imgElement.complete && imgElement.naturalWidth > 0 && imgElement.naturalWidth <= 2));
+    return { ad_id: adContainer.getAttribute("data-ad-id") || `dom_ad_${index}`, image_url: rawImgUrl || combinedHint, text: collectedParts.join(" — ").slice(0, 650), imgElement, hasLoadedImage };
   }
 
   function applyHarmfulAdProtection(adContainer, imgElement, prediction) {
@@ -399,16 +400,16 @@
 
   let isScanning = false;
   function getLiveDomStats() {
-    const harmfulBlurred = document.querySelectorAll("[data-adshield-verdict='harmful']").length;
-    const safeVerified = document.querySelectorAll("[data-adshield-verdict='safe']").length;
+    const harmfulBlurred = document.querySelectorAll("[data-adshield-verdict='harmful']").length, safeVerified = document.querySelectorAll("[data-adshield-verdict='safe']").length;
     return { totalScanned: harmfulBlurred + safeVerified, harmfulBlurred, safeVerified };
   }
-
   function instantLocalPreShield(adData) {
-    const combined = `${adData.text || ""} ${adData.image_url || ""}`;
+    const imgHint = adData.image_url && !adData.image_url.startsWith("data:") ? adData.image_url : "";
+    const combined = `${adData.text || ""} ${imgHint}`;
     for (let i = 0; i < INSTANT_HARM_RULES.length; i += 1) {
       if (INSTANT_HARM_RULES[i][1].test(combined)) return { is_harmful: true, confidence: 0.92, category: INSTANT_HARM_RULES[i][0], reasons: [WARNING_BUTTON_TEXT] };
     }
+    if (/\bsex\b/i.test(combined) && !/sex\s+and\s+the\s+city|sex\s+education/i.test(combined)) return { is_harmful: true, confidence: 0.92, category: "adult_nsfw_scam", reasons: [WARNING_BUTTON_TEXT] };
     return null;
   }
 
@@ -423,14 +424,15 @@
         if (!adContainer || !adContainer.isConnected || isAlreadyProtected(adContainer) || adContainer.getAttribute("data-adshield-state") === "inflight") return;
         const adData = extractMultimodalAdData(adContainer, idx);
         if (!adData.text && !adData.image_url) return;
-        adContainer.setAttribute("data-adshield-state", "inflight");
-        adContainer.setAttribute("data-adshield-scanned", "true");
         const instantVerdict = instantLocalPreShield(adData);
         if (instantVerdict) {
-          adContainer.setAttribute("data-adshield-state", "done");
+          adContainer.setAttribute("data-adshield-state", "done"); adContainer.setAttribute("data-adshield-scanned", "true");
           applyHarmfulAdProtection(adContainer, adData.imgElement, instantVerdict);
           summary.totalScanned += 1; summary.harmfulBlurred += 1; return;
         }
+        if (adData.imgElement && !adData.hasLoadedImage && !adContainer.hasAttribute("data-ad-card")) return;
+        adContainer.setAttribute("data-adshield-state", "inflight");
+        adContainer.setAttribute("data-adshield-scanned", "true");
         if (isRiskyPageQuery) adContainer.classList.add("adshield-inflight-blur");
         const prediction = await requestPrediction(adData, options.apiUrl);
         adContainer.classList.remove("adshield-inflight-blur");
@@ -477,6 +479,7 @@
   }
   observer = new MutationObserver((mutations) => {
     for (let i = 0; i < mutations.length; i += 1) {
+      if (mutations[i].type === "attributes") { scheduleScan(); return; }
       const added = mutations[i].addedNodes;
       for (let j = 0; j < added.length; j += 1) {
         const node = added[j];
@@ -486,7 +489,7 @@
       }
     }
   });
-  if (document.documentElement) observer.observe(document.documentElement, { childList: true, subtree: true });
+  if (document.documentElement) observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcset", "data-src"] });
   window.addEventListener("DOMContentLoaded", () => scanPageAds({ forceRescan: true }), { once: true });
   window.addEventListener("scroll", scheduleScan, { passive: true });
   document.addEventListener("load", scheduleScan, true);

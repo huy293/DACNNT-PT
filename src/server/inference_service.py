@@ -100,10 +100,16 @@ CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
     (
         "adult_nsfw_scam",
         (
-            "phim sex", "phimsex", "sexfull", "sex jav", "jav hd", "javhd", "không che", "khong che", "vlxx", "xvideos", "xnxx",
-            "pornhub", "xhamster", "spankbang", "redtube", "youporn", "missav", "avhd", "hentai", "khiêu dâm", "đồi trụy", "clip nóng", "lộ clip", "gái gọi", "sugar baby",
-            "onlyfans", "khỏa thân", "phim 18+", "18+", "web sex", "xem sex", "sex vietsub", "porn", "nsfw",
-            "jav sub", "bestjavhd", "fuck", "fucks", "stepmother", "stepson", "uncensored", "milf", "xxx",
+            "phim sex", "phimsex", "clip sex", "clipsex", "s.e.x", "sexfull", "sex jav", "jav hd", "javhd",
+            "không che", "khong che", "vlxx", "xvideos", "xnxx", "pornhub", "xhamster", "spankbang", "redtube",
+            "youporn", "missav", "avhd", "eporner", "sexmoiz", "doocliphot", "cliphot", "avjb", "sifangds",
+            "anh-bia-phim", "con-re-chich", "chịch", "hiếp dâm", "loạn luân", "thuốc mê", "thuoc me",
+            "lầu xanh", "lauxanh", "thiendia", "rphang", "viet69", "heovl", "xlecx", "javmost", "javtiful",
+            "supjav", "njav", "avgle", "brazzers", "fansly", "chaturbate", "stripchat", "livejasmin", "cam4",
+            "bongacams", "rule34", "nhentai", "hanime", "hitomi", "hentai", "khiêu dâm", "đồi trụy",
+            "clip nóng", "lộ clip", "gái gọi", "sugar baby", "onlyfans", "khỏa thân", "phim 18+", "18+",
+            "web sex", "xem sex", "sex vietsub", "porn", "nsfw", "jav sub", "bestjavhd", "fuck", "fucks",
+            "stepmother", "stepson", "uncensored", "milf", "xxx",
         ),
         "Nội dung/Quảng cáo khiêu dâm, đồi trụy 18+ hoặc dẫn dụ web đen trái thuần phong mỹ tục (Vi phạm Khoản 1 Điều 8 Luật Quảng cáo)",
     ),
@@ -203,18 +209,19 @@ class HarmfulAdInferenceService:
                     return local_img.read_bytes(), url_str
 
             if is_safe_external_url(url_str):
-                host = (parsed_url.hostname or "").lower()
-                if any(cdn in host for cdn in ("gstatic.com", "googleusercontent.com", "fbcdn.net", "pinimg.com", "imgur.com", "wikimedia.org")):
-                    try:
-                        req = urllib.request.Request(
-                            url_str, headers={"User-Agent": "AdShield-Multimodal-Detector/1.0"}
-                        )
-                        max_bytes = self.config.max_image_size_mb * 1024 * 1024
-                        with urllib.request.urlopen(req, timeout=0.8) as resp:
-                            return resp.read(max_bytes), url_str
-                    except Exception as url_exc:
-                        _record_diagnostic("fetch_external_url", url_exc)
-                        return None, url_str
+                try:
+                    req = urllib.request.Request(
+                        url_str,
+                        headers={
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"
+                        },
+                    )
+                    max_bytes = self.config.max_image_size_mb * 1024 * 1024
+                    with urllib.request.urlopen(req, timeout=1.5) as resp:
+                        return resp.read(max_bytes), url_str
+                except Exception as url_exc:
+                    _record_diagnostic("fetch_external_url", url_exc)
+                    return None, url_str
             return None, url_str
 
         return None, ""
@@ -254,13 +261,21 @@ class HarmfulAdInferenceService:
         clean_text = deobfuscate_ad_text(dto.text or "")
         lower_text = clean_text.lower()
         raw_hint = (dto.image_url or "").strip()
-        hint_lower = raw_hint.lower()
+        hint_lower = "data_uri_image" if raw_hint.startswith("data:image/") else raw_hint.lower()
+        combined_signals = f"{lower_text} {hint_lower}"
 
         primary_hits = sum(
-            1 for grp in HARMFUL_LEXICON_GROUPS for kw in grp if kw in lower_text
+            1 for grp in HARMFUL_LEXICON_GROUPS for kw in grp if kw in combined_signals
         ) + sum(
-            1 for _, kws, _ in EXPANDED_HARMFUL_KEYWORDS for kw in kws if kw in lower_text
+            1 for _, kws, _ in CATEGORY_LABELS for kw in kws if kw in combined_signals
         )
+        if (
+            re.search(r"\bsex\b", combined_signals)
+            and "sex and the city" not in combined_signals
+            and "sex education" not in combined_signals
+        ):
+            primary_hits += 2
+
         hype_hits = sum(1 for kw in HYPE_AMPLIFIER_TERMS if kw in lower_text)
         visual_harm_hits = sum(
             1
@@ -270,11 +285,11 @@ class HarmfulAdInferenceService:
                 "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88", "188bet", "bk8",
                 "1xbet", "aw8", "jp88", "jackpot88", "we88", "king88", "longfu88", "dafabet", "me88", "vn88",
                 "javhd", "vlxx", "xvideos", "xnxx", "pornhub", "bestjavhd", "phimsex", "nsfw",
+                "sexmoiz", "doocliphot", "cliphot", "eporner", "avjb", "sifangds", "anh-bia-phim", "con-re-chich",
             )
-            if cue in hint_lower
+            if cue in combined_signals
         )
 
-        combined_signals = lower_text + " " + hint_lower
         has_bookmaker_pattern = bool(
             re.search(r"\b[a-z0-9]{2,10}(?:88|bet)\b", combined_signals)
             or re.search(r"\b(?:aw8|bk8|k8|eu9|mu9|b52)\b", combined_signals)
@@ -294,9 +309,9 @@ class HarmfulAdInferenceService:
 
         safe_hits = sum(1 for grp in SAFE_LEXICON_GROUPS for kw in grp if kw in lower_text)
 
-        # Fast-path network optimization: skip slow external HTTP image download when text/URL already has clear keywords or caption
+        # Only skip remote HTTP image download when text/URL ALREADY proves the item is harmful
         is_remote_http_img = raw_hint.startswith(("http://", "https://")) and "/data/images/" not in hint_lower
-        if is_remote_http_img and (primary_hits >= 1 or visual_harm_hits >= 1 or safe_hits >= 1 or len(clean_text) >= 14):
+        if is_remote_http_img and (primary_hits >= 2 or visual_harm_hits >= 1):
             img_bytes, img_hint = None, raw_hint
         else:
             img_bytes, img_hint = self._resolve_image_bytes(dto)

@@ -20,8 +20,18 @@ _VISUAL_CONCEPT_CACHE: Dict[str, Any] = {}
 VISUAL_CONCEPT_PROMPTS: Tuple[Tuple[str, str, str], ...] = (
     (
         "adult_nsfw_scam",
-        "a real photograph of a naked person, nude human body, bare breasts, exposed genitals, explicit sex scene",
+        "a real photograph of a naked person, nude human body, bare breasts, exposed genitals, explicit sex scene, oral sex",
         "Phân tích thị giác CLIP Vision (Zero-Shot) & OpenCV YCrCb phát hiện hình ảnh nhạy cảm/khỏa thân 18+ (không cần văn bản)",
+    ),
+    (
+        "adult_nsfw_scam",
+        "an adult pornographic video thumbnail, couple having sex on bed, erotic jav scene, uncensored 18+ adult film",
+        "Phân tích thị giác CLIP Vision (Zero-Shot) phát hiện khung hình phim/video người lớn 18+ nhạy cảm",
+    ),
+    (
+        "adult_nsfw_scam",
+        "a provocative woman in sexy lingerie or micro bikini cleavage, erotic bedroom selfie pose, adult dating scam photo",
+        "Phân tích thị giác CLIP Vision (Zero-Shot) phát hiện hình ảnh gợi dục/nội y nhạy cảm 18+",
     ),
     (
         "graphic_violence_selfharm",
@@ -141,11 +151,12 @@ def compute_opencv_skin_and_gore_ratios(image_bytes: Optional[bytes]) -> Dict[st
         ycrcb = cv2.cvtColor(roi, cv2.COLOR_BGR2YCrCb)
         hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 
-        skin_mask_ycrcb = cv2.inRange(ycrcb, (40, 135, 80), (250, 172, 125))
-        skin_mask_hsv = cv2.inRange(hsv, (0, 28, 60), (22, 170, 255))
-        skin_mask = cv2.bitwise_and(skin_mask_ycrcb, skin_mask_hsv)
+        skin_mask_ycrcb = cv2.inRange(ycrcb, (35, 130, 75), (255, 178, 132))
+        skin_hsv1 = cv2.inRange(hsv, (0, 10, 50), (25, 190, 255))
+        skin_hsv2 = cv2.inRange(hsv, (165, 10, 50), (180, 190, 255))
+        skin_mask = cv2.bitwise_and(skin_mask_ycrcb, cv2.bitwise_or(skin_hsv1, skin_hsv2))
 
-        # Face-Skin Subtraction: mask out detected human faces & neck so close-up face selfies/vlogs are never counted as body nudity
+        # Face-Skin Subtraction: mask out close-up human faces & neck so close-up face selfies/vlogs are never counted as body nudity
         try:
             if "face_cascade" not in _VISUAL_CONCEPT_CACHE:
                 cascade_path = getattr(cv2.data, "haarcascades", "") + "haarcascade_frontalface_default.xml"
@@ -153,9 +164,10 @@ def compute_opencv_skin_and_gore_ratios(image_bytes: Optional[bytes]) -> Dict[st
             face_cascade = _VISUAL_CONCEPT_CACHE.get("face_cascade")
             if face_cascade is not None and not face_cascade.empty():
                 gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-                faces = face_cascade.detectMultiScale(gray_roi, scaleFactor=1.15, minNeighbors=4, minSize=(28, 28))
+                faces = face_cascade.detectMultiScale(gray_roi, scaleFactor=1.15, minNeighbors=6, minSize=(36, 36))
                 for fx, fy, fw, fh in faces:
-                    skin_mask[max(0, fy) : min(roi.shape[0], int(fy + fh * 1.35)), max(0, fx) : min(roi.shape[1], fx + fw)] = 0
+                    if float(fw * fh) >= total_px * 0.10:
+                        skin_mask[max(0, fy) : min(roi.shape[0], int(fy + fh * 1.25)), max(0, fx) : min(roi.shape[1], fx + fw)] = 0
         except Exception:
             pass
 
@@ -200,7 +212,7 @@ def probe_clip_visual_harm_concepts(
     clip_model = getattr(extractor, "clip_model", None)
     clip_processor = getattr(extractor, "clip_processor", None)
     if clip_model is None or clip_processor is None:
-        if skin_ratio >= 0.48:
+        if skin_ratio >= 0.45:
             verdict.update(
                 is_visual_harm=True,
                 visual_category="adult_nsfw_scam",
@@ -214,7 +226,7 @@ def probe_clip_visual_harm_concepts(
         import torch  # type: ignore
         from PIL import Image  # type: ignore
 
-        cache_key = "clip_concept_text_embeds"
+        cache_key = "clip_concept_text_embeds_v2"
         if cache_key not in _VISUAL_CONCEPT_CACHE:
             prompts = [p[1] for p in VISUAL_CONCEPT_PROMPTS]
             with torch.no_grad():
@@ -239,20 +251,21 @@ def probe_clip_visual_harm_concepts(
             logits = (img_norm @ txt_norm.T).squeeze(0) * 100.0
             probs = torch.softmax(logits, dim=-1).detach().cpu().tolist()
 
-        nsfw_p, gore_p, weapon_p, casino_p = (
-            float(probs[0]), float(probs[1]), float(probs[2]), float(probs[3])
-        )
-        safe_p = float(sum(probs[4:]))
+        nsfw_p = float(probs[0] + probs[1] + probs[2])
+        gore_p, weapon_p, casino_p = float(probs[3]), float(probs[4]), float(probs[5])
+        safe_p = float(sum(probs[6:]))
         verdict["safe_prob"] = round(safe_p, 4)
 
         # Combine CLIP zero-shot visual concept probabilities with OpenCV skin/gore ratios.
-        # Mandatory skin_ratio >= 0.22 gate prevents non-skin graphics/infographics (Skin=0%) from ever triggering NSFW.
+        # Non-skin graphics/infographics (Skin=0%) remain 100% blocked from triggering NSFW.
         if (
-            (skin_ratio >= 0.22 and nsfw_p >= 0.56 and nsfw_p > safe_p * 1.15)
-            or (skin_ratio >= 0.48 and nsfw_p >= 0.45 and nsfw_p > safe_p)
-            or skin_ratio >= 0.88
+            (skin_ratio >= 0.10 and nsfw_p >= 0.34 and nsfw_p > safe_p * 0.65)
+            or (skin_ratio >= 0.22 and nsfw_p >= 0.22)
+            or (skin_ratio >= 0.36 and nsfw_p >= 0.14)
+            or (nsfw_p >= 0.56 and skin_ratio >= 0.05)
+            or skin_ratio >= 0.52
         ):
-            score = min(0.97, max(nsfw_p, 0.62 + skin_ratio * 0.35))
+            score = min(0.97, max(nsfw_p, 0.66 + skin_ratio * 0.32))
             verdict.update(
                 is_visual_harm=True,
                 visual_category="adult_nsfw_scam",
@@ -265,21 +278,21 @@ def probe_clip_visual_harm_concepts(
                 is_visual_harm=True,
                 visual_category="graphic_violence_selfharm",
                 visual_prob=round(score, 4),
-                visual_reason=f"{VISUAL_CONCEPT_PROMPTS[1][2]} (CLIP Gore={gore_p:.2f}, Blood={blood_ratio:.0%})",
+                visual_reason=f"{VISUAL_CONCEPT_PROMPTS[3][2]} (CLIP Gore={gore_p:.2f}, Blood={blood_ratio:.0%})",
             )
         elif weapon_p >= 0.68 and weapon_p > safe_p * 1.35:
             verdict.update(
                 is_visual_harm=True,
                 visual_category="illegal_contraband_weapons",
                 visual_prob=round(min(0.95, max(0.68, weapon_p)), 4),
-                visual_reason=f"{VISUAL_CONCEPT_PROMPTS[2][2]} (CLIP Weapon/Drug={weapon_p:.2f})",
+                visual_reason=f"{VISUAL_CONCEPT_PROMPTS[4][2]} (CLIP Weapon/Drug={weapon_p:.2f})",
             )
         elif casino_p >= 0.72 and casino_p > safe_p * 1.35 and not image_hint.startswith("data/images/hm_"):
             verdict.update(
                 is_visual_harm=True,
                 visual_category="gambling_scam",
                 visual_prob=round(min(0.94, max(0.66, casino_p)), 4),
-                visual_reason=f"{VISUAL_CONCEPT_PROMPTS[3][2]} (CLIP Casino={casino_p:.2f})",
+                visual_reason=f"{VISUAL_CONCEPT_PROMPTS[5][2]} (CLIP Casino={casino_p:.2f})",
             )
     except Exception:
         pass

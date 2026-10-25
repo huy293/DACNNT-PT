@@ -205,8 +205,8 @@ def create_stdlib_http_handler(controller: GatewayController):
                 else:
                     raw_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
                     try:
-                        payload = json.loads(raw_body.decode("utf-8"))
-                    except json.JSONDecodeError:
+                        payload = json.loads(raw_body.decode("utf-8", errors="replace"))
+                    except (json.JSONDecodeError, ValueError):
                         self._send_json(400, {"error": "ERR_INVALID_JSON", "message": "Invalid JSON body"})
                         return
 
@@ -217,9 +217,9 @@ def create_stdlib_http_handler(controller: GatewayController):
             if path == "/predict/batch":
                 raw_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
                 try:
-                    body_obj = json.loads(raw_body.decode("utf-8"))
+                    body_obj = json.loads(raw_body.decode("utf-8", errors="replace"))
                     items = body_obj.get("items", []) if isinstance(body_obj, dict) else body_obj
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, ValueError):
                     self._send_json(400, {"error": "ERR_INVALID_JSON"})
                     return
                 status, resp = controller.handle_predict_batch(items, client_ip=client_ip)

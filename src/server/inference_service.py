@@ -195,18 +195,19 @@ class HarmfulAdInferenceService:
                 if local_img.parent == images_dir and local_img.is_file():
                     return local_img.read_bytes(), url_str
 
-            if is_safe_external_url(url_str):
-                try:
-                    req = urllib.request.Request(
-                        url_str, headers={"User-Agent": "AdShield-Multimodal-Detector/1.0"}
-                    )
-                    max_bytes = self.config.max_image_size_mb * 1024 * 1024
-                    with urllib.request.urlopen(req, timeout=3.0) as resp:
-                        data = resp.read(max_bytes)
-                        return data, url_str
-                except Exception as url_exc:
-                    _record_diagnostic("fetch_external_url", url_exc)
-                    return None, url_str
+            if is_safe_external_url(url_str) and len((dto.text or "").strip()) < 8:
+                host = (parsed_url.hostname or "").lower()
+                if any(cdn in host for cdn in ("gstatic.com", "googleusercontent.com", "fbcdn.net", "imgur.com", "wikimedia.org")):
+                    try:
+                        req = urllib.request.Request(
+                            url_str, headers={"User-Agent": "AdShield-Multimodal-Detector/1.0"}
+                        )
+                        max_bytes = self.config.max_image_size_mb * 1024 * 1024
+                        with urllib.request.urlopen(req, timeout=0.8) as resp:
+                            return resp.read(max_bytes), url_str
+                    except Exception as url_exc:
+                        _record_diagnostic("fetch_external_url", url_exc)
+                        return None, url_str
             return None, url_str
 
         return None, ""

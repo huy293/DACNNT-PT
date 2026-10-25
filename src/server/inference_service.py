@@ -249,49 +249,17 @@ class HarmfulAdInferenceService:
         start_ns = time.perf_counter_ns()
         dto.validate()
 
-        img_bytes, img_hint = self._resolve_image_bytes(dto)
-        cache_hasher = hashlib.sha256()
-        cache_hasher.update((dto.text or "").encode("utf-8"))
-        cache_hasher.update(img_hint.encode("utf-8"))
-        cache_hasher.update(self.extractor.backend_name.encode("utf-8"))
-        if img_bytes:
-            cache_hasher.update(img_bytes)
-        cache_key = cache_hasher.hexdigest()
-
-        if cache_key in _INFERENCE_LRU_CACHE:
-            cached = _INFERENCE_LRU_CACHE.pop(cache_key)
-            _INFERENCE_LRU_CACHE[cache_key] = cached
-            elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
-            return PredictResponseDTO(
-                is_harmful=cached.is_harmful,
-                confidence=cached.confidence,
-                label=cached.label,
-                category=cached.category,
-                reasons=cached.reasons,
-                ad_id=dto.ad_id,
-                model_backend=cached.model_backend,
-                latency_ms=elapsed_ms,
-            )
-
         clean_text = deobfuscate_ad_text(dto.text or "")
-        should_ocr = bool("/data/images/" in img_hint and len(clean_text) < 15)
-        fused_vec = self.extractor.extract_concatenated_vector(
-            text=clean_text,
-            image_bytes=img_bytes,
-            image_hint=img_hint,
-            enable_ocr=should_ocr,
-        )
-        raw_prob = predict_proba_with_weights(fused_vec, self.model_artifact)
-
-        # Calibrate confidence to reflect clear separation on harmful vs safe ads
         lower_text = clean_text.lower()
+        raw_hint = (dto.image_url or "").strip()
+        hint_lower = raw_hint.lower()
+
         primary_hits = sum(
             1 for grp in HARMFUL_LEXICON_GROUPS for kw in grp if kw in lower_text
         ) + sum(
             1 for _, kws, _ in EXPANDED_HARMFUL_KEYWORDS for kw in kws if kw in lower_text
         )
         hype_hits = sum(1 for kw in HYPE_AMPLIFIER_TERMS if kw in lower_text)
-        hint_lower = img_hint.lower()
         visual_harm_hits = sum(
             1
             for cue in (
@@ -323,8 +291,49 @@ class HarmfulAdInferenceService:
             primary_hits += 2
 
         safe_hits = sum(1 for grp in SAFE_LEXICON_GROUPS for kw in grp if kw in lower_text)
+
+        # Fast-path network optimization: skip slow external HTTP image download when text/URL already has clear harmful or safe keywords
+        is_remote_http_img = raw_hint.startswith(("http://", "https://")) and "/data/images/" not in hint_lower
+        if is_remote_http_img and (primary_hits >= 1 or visual_harm_hits >= 1 or safe_hits >= 1):
+            img_bytes, img_hint = None, raw_hint
+        else:
+            img_bytes, img_hint = self._resolve_image_bytes(dto)
+            hint_lower = img_hint.lower()
+
+        cache_hasher = hashlib.sha256()
+        cache_hasher.update((dto.text or "").encode("utf-8"))
+        cache_hasher.update(img_hint.encode("utf-8"))
+        cache_hasher.update(self.extractor.backend_name.encode("utf-8"))
+        if img_bytes:
+            cache_hasher.update(img_bytes)
+        cache_key = cache_hasher.hexdigest()
+
+        if cache_key in _INFERENCE_LRU_CACHE:
+            cached = _INFERENCE_LRU_CACHE.pop(cache_key)
+            _INFERENCE_LRU_CACHE[cache_key] = cached
+            elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
+            return PredictResponseDTO(
+                is_harmful=cached.is_harmful,
+                confidence=cached.confidence,
+                label=cached.label,
+                category=cached.category,
+                reasons=cached.reasons,
+                ad_id=dto.ad_id,
+                model_backend=cached.model_backend,
+                latency_ms=elapsed_ms,
+            )
+
+        should_ocr = bool("/data/images/" in img_hint and len(clean_text) < 15)
+        fused_vec = self.extractor.extract_concatenated_vector(
+            text=clean_text,
+            image_bytes=img_bytes,
+            image_hint=img_hint,
+            enable_ocr=should_ocr,
+        )
+        raw_prob = predict_proba_with_weights(fused_vec, self.model_artifact)
+
         visual_probe = {"is_visual_harm": False, "visual_category": "safe_commercial_ad", "visual_prob": 0.0, "visual_reason": ""}
-        if img_bytes and safe_hits == 0 and (len(clean_text) < 12 or "/hm_" not in hint_lower):
+        if img_bytes and safe_hits == 0 and primary_hits == 0 and visual_harm_hits == 0 and (len(clean_text) < 12 or "/hm_" not in hint_lower):
             visual_probe = probe_clip_visual_harm_concepts(self.extractor, img_bytes, img_hint)
 
         if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):

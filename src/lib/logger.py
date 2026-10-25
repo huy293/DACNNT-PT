@@ -58,8 +58,13 @@ class StructuredLogger:
             sys.stdout.write(line)
             sys.stdout.flush()
         except UnicodeEncodeError:
-            sys.stdout.write(json.dumps(record, ensure_ascii=True) + "\n")
-            sys.stdout.flush()
+            try:
+                sys.stdout.write(json.dumps(record, ensure_ascii=True) + "\n")
+                sys.stdout.flush()
+            except OSError:
+                pass
+        except OSError:
+            pass
         return record
 
 

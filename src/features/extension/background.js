@@ -101,8 +101,8 @@ async function callBackendPredict(payload) {
     return { ok: true, data: result, cached: false };
   } catch (err) {
     consecutiveFailures += 1;
-    if (consecutiveFailures >= 3) {
-      circuitOpenUntil = Date.now() + 5000;
+    if (consecutiveFailures >= 5) {
+      circuitOpenUntil = Date.now() + 1000;
     }
     tabStats.lastError = err && err.message ? err.message : "Không thể kết nối Backend API";
     return { ok: false, error: tabStats.lastError };

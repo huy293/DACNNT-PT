@@ -450,8 +450,8 @@
           summary.safeVerified += 1;
         }
       }
-      for (let i = 0; i < candidates.length; i += 6) {
-        await Promise.all(candidates.slice(i, i + 6).map((el, j) => processCandidate(el, i + j + 1)));
+      for (let i = 0; i < candidates.length; i += 12) {
+        await Promise.all(candidates.slice(i, i + 12).map((el, j) => processCandidate(el, i + j + 1)));
       }
       return summary;
     } finally { isScanning = false; }

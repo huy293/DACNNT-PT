@@ -1,11 +1,6 @@
-/**
- * Stage 4 (Week 6 & 7): Content Script (`content.js`).
- */
+/** Stage 4 (Week 6 & 7): Content Script (`content.js`). */
 (function initAdShieldContentScript() {
-  if (typeof window.__adshieldCleanup === "function") {
-    try { window.__adshieldCleanup(); } catch (_e) {}
-  }
-
+  if (typeof window.__adshieldCleanup === "function") { try { window.__adshieldCleanup(); } catch (_e) {} }
   function isExtensionContextValid() {
     try { return Boolean(typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id); } catch (_e) { return false; }
   }
@@ -52,6 +47,9 @@
   const SAFE_NAV_PATTERN = /^(live\b|livescore|trận hot|blv\b|hôm nay|ngày mai|tất cả|bóng đá|bóng rổ|tennis|cầu lông|bóng chuyền|lịch thi đấu|highlight|xem lại|bảng xếp hạng|kqbđ|cẩm nang|tuyển dụng)/i;
 
   function isSafeNavigationOrLogo(imgEl) {
+    if (!imgEl || !imgEl.closest) return false;
+    if (/messenger\.com|zalo\.me/.test((window.location.hostname || "").toLowerCase())) return true;
+    if (imgEl.closest("[contenteditable='true'], [role='textbox'], [role='dialog'], [role='row'], [role='grid'], [role='log'], [aria-label*='Tin nhắn'], [aria-label*='Messages'], [aria-label*='Chat']")) return true;
     try {
       const r = imgEl.getBoundingClientRect();
       if (r.width > 0 && r.width <= 240 && r.height <= 75 && r.top >= 0 && r.top < 75 && r.left >= 0 && r.left < 260) return true;
@@ -141,15 +139,10 @@
   }
 
   function findClosestMediaTextContainer(imgEl) {
-    const explicitCard = imgEl.closest(
-      "[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [data-offer-name], [data-deal-id], [data-ri], .isv-r, .eA0Zlc, .PNCib, [class*='ranking'], [class*='offer'], [class*='casino'], [class*='bookmaker'], [class*='review-item'], [class*='item-casino']"
-    );
+    const explicitCard = imgEl.closest("[data-ad-card], .ad-card, .sponsored-post, [data-testid*='ad-card'], [data-offer-name], [data-deal-id], [data-ri], .isv-r, .eA0Zlc, .PNCib, [class*='ranking'], [class*='offer'], [class*='casino'], [class*='bookmaker'], [class*='review-item'], [class*='item-casino']");
     if (explicitCard && countCardImages(explicitCard) <= 1) return explicitCard;
-
     const bestCard = climbToFullCard(imgEl);
-    const bestText = (bestCard.innerText || bestCard.textContent || "").trim();
-    if (bestCard !== imgEl && bestText.length >= 6) return bestCard;
-
+    if (bestCard !== imgEl && (bestCard.innerText || bestCard.textContent || "").trim().length >= 6) return bestCard;
     if (isBannerLikeImage(imgEl)) {
       const tightAnchor = imgEl.closest("a[href], button");
       if (tightAnchor && countCardImages(tightAnchor) <= 1 && (tightAnchor.clientHeight || 0) <= 180) return tightAnchor;
@@ -160,48 +153,34 @@
 
   function extractAdjacentSiblingText(node) {
     const parts = [];
-    let curr = node;
-    for (let depth = 0; depth < 4 && curr && curr !== document.body; depth += 1) {
+    for (let depth = 0, curr = node; depth < 4 && curr && curr !== document.body; depth += 1, curr = curr.parentElement) {
       if (countCardImages(curr) > 1) break;
       for (const dir of ["previousElementSibling", "nextElementSibling"]) {
-        let sib = curr[dir];
-        for (let step = 0; step < 2 && sib; step += 1) {
+        for (let step = 0, sib = curr[dir]; step < 2 && sib; step += 1, sib = sib[dir]) {
           if (countCardImages(sib) === 0) {
             const txt = (sib.innerText || sib.textContent || "").replace(/\s+/g, " ").trim().slice(0, 260);
-            if (txt.length >= 4 && !parts.includes(txt)) {
-              if (dir === "previousElementSibling") parts.unshift(txt); else parts.push(txt);
-            }
+            if (txt.length >= 4 && !parts.includes(txt)) { if (dir === "previousElementSibling") parts.unshift(txt); else parts.push(txt); }
           }
-          sib = sib[dir];
         }
       }
-      curr = curr.parentElement;
     }
     return parts;
   }
 
   function findAdCandidates(root = document) {
-    const explicitSelectors = [
-      "[data-ad-card]", ".ad-card", ".sponsored-post", '[data-testid*="ad-card"]',
-      '[aria-label*="Sponsored"]', '[aria-label*="Được tài trợ"]', "[data-offer-name]",
-    ];
     const candidateSet = new Set();
-    explicitSelectors.forEach((sel) => {
+    ["[data-ad-card]", ".ad-card", ".sponsored-post", '[data-testid*="ad-card"]', '[aria-label*="Sponsored"]', '[aria-label*="Được tài trợ"]', "[data-offer-name]"].forEach((sel) => {
       root.querySelectorAll(sel).forEach((el) => { if (!isAlreadyProtected(el)) candidateSet.add(el); });
     });
-
-    const ctaKeywords =
-      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|jackpot88|we88|king88|longfu88|dafabet|me88|vn88|phim sex|phimsex|sexfull|sex jav|javhd|jav hd|jav sub|không che|vlxx|xvideos|xnxx|pornhub|xhamster|spankbang|redtube|youporn|missav|avhd|khiêu dâm|clip nóng|phim 18+|18+|fuck|fucks|stepmother|stepson|uncensored|milf|hentai|xxx|mua pod|pod chill|tinh dầu vape|bóng cười|cỏ mỹ|súng bắn bi|súng đạn|dao bấm|dao kiếm|katana|kiếm nhật|làm bằng giả|làm bằng đại học|làm cccd giả|đọc trộm tin nhắn|theo dõi ngoại tình|bùa yêu|thỉnh bùa|bùa ngải|kumanthong|máu me kinh dị".split("|");
+    const ctaKeywords = "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|jackpot88|we88|king88|longfu88|dafabet|me88|vn88|phim sex|phimsex|sexfull|sex jav|javhd|jav hd|jav sub|không che|vlxx|xvideos|xnxx|pornhub|xhamster|spankbang|redtube|youporn|missav|avhd|khiêu dâm|clip nóng|phim 18+|18+|fuck|fucks|stepmother|stepson|uncensored|milf|hentai|xxx|mua pod|pod chill|tinh dầu vape|bóng cười|cỏ mỹ|súng bắn bi|súng đạn|dao bấm|dao kiếm|katana|kiếm nhật|làm bằng giả|làm bằng đại học|làm cccd giả|đọc trộm tin nhắn|theo dõi ngoại tình|bùa yêu|thỉnh bùa|bùa ngải|kumanthong|máu me kinh dị".split("|");
+    const allowTextOnlyBadges = detectPageGamblingSignals().length > 0;
     root.querySelectorAll("a, button, span, li, div").forEach((btnEl) => {
-      if (isAlreadyProtected(btnEl)) return;
+      if (isAlreadyProtected(btnEl) || isSafeNavigationOrLogo(btnEl)) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
       if (txt.length >= 4 && txt.length <= 280 && ctaKeywords.some((kw) => txt.includes(kw))) {
         const climbed = climbToFullCard(btnEl);
-        if (climbed && climbed !== document.body && countCardImages(climbed) === 1 && !isAlreadyProtected(climbed)) {
-          candidateSet.add(climbed);
-        } else if (countCardImages(btnEl) === 0 && txt.length <= 95) {
-          candidateSet.add(btnEl);
-        }
+        if (climbed && climbed !== document.body && countCardImages(climbed) === 1 && !isAlreadyProtected(climbed)) candidateSet.add(climbed);
+        else if (allowTextOnlyBadges && countCardImages(btnEl) === 0 && txt.length <= 95) candidateSet.add(btnEl);
       }
     });
 
@@ -296,13 +275,22 @@
 
     const mediaTargets = Array.from(hostContainer.querySelectorAll("img, video, canvas, [data-ad-media-body]"));
     if (imgElement && !mediaTargets.includes(imgElement)) mediaTargets.push(imgElement);
-    const targetToBlur = hostContainer.querySelector("[data-ad-media-body]") || imgElement || mediaTargets[0] || hostContainer;
-    targetToBlur.style.filter = "blur(10px)";
-    targetToBlur.classList.add("adshield-blurred-target");
-    mediaTargets.forEach((m) => {
-      m.style.filter = "blur(16px) brightness(0.22)";
-      m.classList.add("adshield-blurred-target");
+    const childTargets = mediaTargets.length > 0
+      ? mediaTargets
+      : Array.from(hostContainer.children).filter((c) => !c.classList.contains("adshield-warning-overlay"));
+    const targetToBlur = hostContainer.querySelector("[data-ad-media-body]") || imgElement || childTargets[0] || null;
+    if (targetToBlur && targetToBlur !== hostContainer) {
+      targetToBlur.style.filter = "blur(10px)";
+      targetToBlur.classList.add("adshield-blurred-target");
+    }
+    childTargets.forEach((m) => {
+      if (m !== hostContainer) {
+        m.style.filter = "blur(16px) brightness(0.22)";
+        m.classList.add("adshield-blurred-target");
+      }
     });
+    hostContainer.style.filter = "none";
+    hostContainer.classList.remove("adshield-blurred-target", "adshield-inflight-blur");
     hostContainer.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
 
     const confidencePct = Math.round((Number(prediction.confidence) || 0.89) * 100);
@@ -339,14 +327,27 @@
       event.preventDefault();
       event.stopPropagation();
       isRevealed = !isRevealed;
-      targetToBlur.style.filter = isRevealed ? "none" : "blur(10px)";
-      targetToBlur.classList.toggle("adshield-blurred-target", !isRevealed);
-      targetToBlur.classList.toggle("adshield-unblurred-target", isRevealed);
-      mediaTargets.forEach((m) => {
-        m.style.filter = isRevealed ? "none" : "blur(16px) brightness(0.22)";
-        m.classList.toggle("adshield-blurred-target", !isRevealed);
-        m.classList.toggle("adshield-unblurred-target", isRevealed);
+      hostContainer.style.filter = "none";
+      hostContainer.classList.remove("adshield-blurred-target", "adshield-inflight-blur");
+      if (targetToBlur && targetToBlur !== hostContainer) {
+        targetToBlur.style.filter = isRevealed ? "none" : "blur(10px)";
+        targetToBlur.classList.toggle("adshield-blurred-target", !isRevealed);
+        targetToBlur.classList.toggle("adshield-unblurred-target", isRevealed);
+      }
+      childTargets.forEach((m) => {
+        if (m !== hostContainer) {
+          m.style.filter = isRevealed ? "none" : "blur(16px) brightness(0.22)";
+          m.classList.toggle("adshield-blurred-target", !isRevealed);
+          m.classList.toggle("adshield-unblurred-target", isRevealed);
+        }
       });
+      if (isRevealed) {
+        hostContainer.querySelectorAll(".adshield-blurred-target, .adshield-inflight-blur").forEach((el) => {
+          el.style.filter = "none";
+          el.classList.remove("adshield-blurred-target", "adshield-inflight-blur");
+          el.classList.add("adshield-unblurred-target");
+        });
+      }
       overlay.classList.toggle("adshield-overlay-minimized", isRevealed);
       toggleButton.innerHTML = isRevealed ? openedBtnHtml : closedBtnHtml;
     });
@@ -355,8 +356,10 @@
     hostContainer.appendChild(overlay);
   }
 
-  function markSafeAd(adContainer, prediction) {
+  function markSafeAd(adContainer, prediction, imgElement) {
     adContainer.setAttribute("data-adshield-verdict", "safe");
+    adContainer.setAttribute("data-adshield-scanned", "true");
+    if (imgElement) imgElement.setAttribute("data-adshield-scanned", "true");
     if (!adContainer.hasAttribute("data-ad-card")) return;
     adContainer.classList.add("adshield-card-wrapper");
     if (!adContainer.querySelector(".adshield-safe-pill")) {
@@ -425,17 +428,18 @@
         adContainer.setAttribute("data-adshield-scanned", "true");
         const instantVerdict = instantLocalPreShield(adData);
         if (instantVerdict) {
+          adContainer.setAttribute("data-adshield-state", "done");
           applyHarmfulAdProtection(adContainer, adData.imgElement, instantVerdict);
-        } else if (isRiskyPageQuery) {
-          adContainer.classList.add("adshield-inflight-blur");
+          summary.totalScanned += 1;
+          summary.harmfulBlurred += 1;
+          return;
         }
+        if (isRiskyPageQuery) adContainer.classList.add("adshield-inflight-blur");
         const prediction = await requestPrediction(adData, options.apiUrl);
         adContainer.classList.remove("adshield-inflight-blur");
         if (!prediction || !adContainer.isConnected) {
-          if (!instantVerdict) {
-            adContainer.removeAttribute("data-adshield-state");
-            adContainer.removeAttribute("data-adshield-scanned");
-          }
+          adContainer.removeAttribute("data-adshield-state");
+          adContainer.removeAttribute("data-adshield-scanned");
           return;
         }
         adContainer.setAttribute("data-adshield-state", "done");
@@ -443,13 +447,13 @@
         if (prediction.is_harmful === true) {
           applyHarmfulAdProtection(adContainer, adData.imgElement, prediction);
           summary.harmfulBlurred += 1;
-        } else if (!instantVerdict) {
-          markSafeAd(adContainer, prediction);
+        } else {
+          markSafeAd(adContainer, prediction, adData.imgElement);
           summary.safeVerified += 1;
         }
       }
-      for (let i = 0; i < candidates.length; i += 16) {
-        await Promise.all(candidates.slice(i, i + 16).map((el, j) => processCandidate(el, i + j + 1)));
+      for (let i = 0; i < candidates.length; i += 6) {
+        await Promise.all(candidates.slice(i, i + 6).map((el, j) => processCandidate(el, i + j + 1)));
       }
       return summary;
     } finally { isScanning = false; }

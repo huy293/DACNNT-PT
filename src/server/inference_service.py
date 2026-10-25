@@ -13,6 +13,7 @@ import ipaddress
 import json
 import pickle
 import re
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -41,6 +42,7 @@ from src.server.schemas import PredictRequestDTO, PredictResponseDTO
 
 _INFERENCE_LRU_CACHE: OrderedDict[str, PredictResponseDTO] = OrderedDict()
 _MAX_LRU_CACHE_SIZE = 512
+_TORCH_INFERENCE_LOCK = threading.Lock()
 
 CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
     (
@@ -292,9 +294,9 @@ class HarmfulAdInferenceService:
 
         safe_hits = sum(1 for grp in SAFE_LEXICON_GROUPS for kw in grp if kw in lower_text)
 
-        # Fast-path network optimization: skip slow external HTTP image download when text/URL already has clear harmful or safe keywords
+        # Fast-path network optimization: skip slow external HTTP image download when text/URL already has clear keywords or caption
         is_remote_http_img = raw_hint.startswith(("http://", "https://")) and "/data/images/" not in hint_lower
-        if is_remote_http_img and (primary_hits >= 1 or visual_harm_hits >= 1 or safe_hits >= 1):
+        if is_remote_http_img and (primary_hits >= 1 or visual_harm_hits >= 1 or safe_hits >= 1 or len(clean_text) >= 14):
             img_bytes, img_hint = None, raw_hint
         else:
             img_bytes, img_hint = self._resolve_image_bytes(dto)
@@ -324,17 +326,18 @@ class HarmfulAdInferenceService:
             )
 
         should_ocr = bool("/data/images/" in img_hint and len(clean_text) < 15)
-        fused_vec = self.extractor.extract_concatenated_vector(
-            text=clean_text,
-            image_bytes=img_bytes,
-            image_hint=img_hint,
-            enable_ocr=should_ocr,
-        )
-        raw_prob = predict_proba_with_weights(fused_vec, self.model_artifact)
+        with _TORCH_INFERENCE_LOCK:
+            fused_vec = self.extractor.extract_concatenated_vector(
+                text=clean_text,
+                image_bytes=img_bytes,
+                image_hint=img_hint,
+                enable_ocr=should_ocr,
+            )
+            raw_prob = predict_proba_with_weights(fused_vec, self.model_artifact)
 
-        visual_probe = {"is_visual_harm": False, "visual_category": "safe_commercial_ad", "visual_prob": 0.0, "visual_reason": ""}
-        if img_bytes and safe_hits == 0 and primary_hits == 0 and visual_harm_hits == 0 and (len(clean_text) < 12 or "/hm_" not in hint_lower):
-            visual_probe = probe_clip_visual_harm_concepts(self.extractor, img_bytes, img_hint)
+            visual_probe = {"is_visual_harm": False, "visual_category": "safe_commercial_ad", "visual_prob": 0.0, "visual_reason": ""}
+            if img_bytes and safe_hits == 0 and primary_hits == 0 and visual_harm_hits == 0 and (len(clean_text) < 12 or "/hm_" not in hint_lower):
+                visual_probe = probe_clip_visual_harm_concepts(self.extractor, img_bytes, img_hint)
 
         if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):
             harmful_prob = round(0.25 * raw_prob + 0.75 * min(0.98, 0.84 + 0.03 * (primary_hits + hype_hits)), 4)

@@ -245,6 +245,8 @@ def run_stdlib_server(
     bind_port = port or controller.config.port
     handler_cls = create_stdlib_http_handler(controller)
     server = ThreadingHTTPServer((bind_host, bind_port), handler_cls)
+    server.daemon_threads = True
+    server.block_on_close = False
     print(f"AdShield Multimodal API running on http://{bind_host}:{bind_port}")
     print(f"  -> POST http://{bind_host}:{bind_port}/predict")
     print(f"  -> GET  http://{bind_host}:{bind_port}/demo")

@@ -21,7 +21,12 @@
     "mua pod", "pod chill", "tinh dầu vape", "bóng cười", "súng bắn bi", "dao bấm", "làm bằng giả", "đọc trộm tin nhắn", "bùa yêu", "bùa ngải",
   ];
 
+  const MAINSTREAM_PLATFORM_HOSTS =
+    /(?:^|\.)(google\.|bing\.|coccoc\.|yahoo\.|duckduckgo\.|youtube\.|tiktok\.|facebook\.|instagram\.|twitter\.|x\.com|reddit\.|github\.|kaggle\.|wikipedia\.|vnexpress\.|dantri\.|tuoitre\.|thanhnien\.|znews\.|kenh14\.|vietnamnet\.|24h\.com\.vn)/i;
+
   function detectPageGamblingSignals() {
+    const host = (window.location.hostname || "").toLowerCase();
+    if (MAINSTREAM_PLATFORM_HOSTS.test(host)) return [];
     const navSample = Array.from(document.querySelectorAll("header, nav, .header, .menu, .navbar, a"))
       .slice(0, 60)
       .map((el) => (el.innerText || el.textContent || "").trim())

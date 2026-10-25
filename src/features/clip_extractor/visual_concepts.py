@@ -20,7 +20,7 @@ _VISUAL_CONCEPT_CACHE: Dict[str, Any] = {}
 VISUAL_CONCEPT_PROMPTS: Tuple[Tuple[str, str, str], ...] = (
     (
         "adult_nsfw_scam",
-        "a photo of explicit nudity, naked human body, pornography, uncensored adult erotica, NSFW",
+        "a real photograph of a naked person, nude human body, bare breasts, exposed genitals, explicit sex scene",
         "Phân tích thị giác CLIP Vision (Zero-Shot) & OpenCV YCrCb phát hiện hình ảnh nhạy cảm/khỏa thân 18+ (không cần văn bản)",
     ),
     (
@@ -40,12 +40,12 @@ VISUAL_CONCEPT_PROMPTS: Tuple[Tuple[str, str, str], ...] = (
     ),
     (
         "safe_commercial_ad",
-        "a photo of a normal clothed person portrait, family, student, fashion, or everyday people",
+        "a photo of a normal clothed person portrait, TikTok reel, selfie, woman in dress or t-shirt, or everyday people",
         "Hình ảnh con người/đời thường an toàn",
     ),
     (
         "safe_commercial_ad",
-        "a photo of nature landscape, blue sky, green grass, trees, building, street, or scenery",
+        "a photo of nature landscape, blue sky, green grass, trees, street, vehicle, motorcycle, or outdoor scene",
         "Hình ảnh phong cảnh/môi trường an toàn",
     ),
     (
@@ -55,8 +55,8 @@ VISUAL_CONCEPT_PROMPTS: Tuple[Tuple[str, str, str], ...] = (
     ),
     (
         "safe_commercial_ad",
-        "a clean graphic design, abstract color background, chart, diagram, logo icon, or educational slide",
-        "Hình ảnh đồ họa/biểu đồ an toàn",
+        "an educational technology infographic, software DevOps diagram, icons chart, logo, or clean graphic poster",
+        "Hình ảnh đồ họa/biểu đồ công nghệ an toàn",
     ),
 )
 
@@ -225,36 +225,36 @@ def probe_clip_visual_harm_concepts(
         safe_p = float(sum(probs[4:]))
         verdict["safe_prob"] = round(safe_p, 4)
 
-        # Combine CLIP zero-shot visual concept probabilities with OpenCV skin/gore ratios
+        # Combine CLIP zero-shot visual concept probabilities with OpenCV skin/gore ratios.
+        # Mandatory skin_ratio >= 0.22 gate prevents non-skin graphics/infographics (Skin=0%) from ever triggering NSFW.
         if (
-            (nsfw_p >= 0.45 and skin_ratio >= 0.16)
-            or (nsfw_p >= 0.25 and skin_ratio >= 0.35)
-            or (skin_ratio >= 0.55 and safe_p < 0.50)
-            or nsfw_p >= 0.72
+            (skin_ratio >= 0.22 and nsfw_p >= 0.56 and nsfw_p > safe_p * 1.15)
+            or (skin_ratio >= 0.48 and nsfw_p >= 0.45 and nsfw_p > safe_p)
+            or skin_ratio >= 0.88
         ):
-            score = min(0.97, max(nsfw_p, 0.62 + skin_ratio * 0.45))
+            score = min(0.97, max(nsfw_p, 0.62 + skin_ratio * 0.35))
             verdict.update(
                 is_visual_harm=True,
                 visual_category="adult_nsfw_scam",
                 visual_prob=round(score, 4),
                 visual_reason=f"{VISUAL_CONCEPT_PROMPTS[0][2]} (CLIP NSFW={nsfw_p:.2f}, Skin={skin_ratio:.0%})",
             )
-        elif (gore_p >= 0.42 and blood_ratio >= 0.04) or (blood_ratio >= 0.25 and gore_p >= 0.18) or gore_p >= 0.75:
-            score = min(0.96, max(gore_p, 0.65 + blood_ratio * 0.5))
+        elif gore_p >= 0.64 and gore_p > safe_p * 1.25 and blood_ratio >= 0.08:
+            score = min(0.96, max(gore_p, 0.68 + blood_ratio * 0.4))
             verdict.update(
                 is_visual_harm=True,
                 visual_category="graphic_violence_selfharm",
                 visual_prob=round(score, 4),
                 visual_reason=f"{VISUAL_CONCEPT_PROMPTS[1][2]} (CLIP Gore={gore_p:.2f}, Blood={blood_ratio:.0%})",
             )
-        elif weapon_p >= 0.58 and weapon_p > safe_p:
+        elif weapon_p >= 0.68 and weapon_p > safe_p * 1.35:
             verdict.update(
                 is_visual_harm=True,
                 visual_category="illegal_contraband_weapons",
                 visual_prob=round(min(0.95, max(0.68, weapon_p)), 4),
                 visual_reason=f"{VISUAL_CONCEPT_PROMPTS[2][2]} (CLIP Weapon/Drug={weapon_p:.2f})",
             )
-        elif casino_p >= 0.62 and casino_p > safe_p and not image_hint.startswith("data/images/hm_"):
+        elif casino_p >= 0.72 and casino_p > safe_p * 1.35 and not image_hint.startswith("data/images/hm_"):
             verdict.update(
                 is_visual_harm=True,
                 visual_category="gambling_scam",

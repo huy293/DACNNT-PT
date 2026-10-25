@@ -336,8 +336,8 @@ class HarmfulAdInferenceService:
                 s in lower_text for s in ("exploratory data analysis", "confusion matrix", "upvotes", "kaggle")
             ):
                 harmful_prob = round(0.45 * raw_prob + 0.55 * 0.08, 4)
-            elif len(clean_text) < 3 and img_bytes and not visual_probe.get("is_visual_harm"):
-                harmful_prob = round(0.30 * raw_prob + 0.70 * (1.0 - float(visual_probe.get("safe_prob", 0.85))), 4)
+            elif not visual_probe.get("is_visual_harm") and "/hm_" not in hint_lower:
+                harmful_prob = round(0.25 * raw_prob + 0.75 * 0.12, 4)
             else:
                 harmful_prob = round(raw_prob, 4)
 

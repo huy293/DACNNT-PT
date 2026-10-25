@@ -11,9 +11,10 @@ import json
 import time
 import urllib.parse
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from email.parser import BytesParser
 from email.policy import default as default_email_policy
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -127,17 +128,23 @@ def create_stdlib_http_handler(controller: GatewayController):
 
         def _send_json(self, status: int, data: Dict[str, Any]) -> None:
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self._send_cors_headers()
-            self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self._send_cors_headers()
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError, OSError):
+                pass
 
         def do_OPTIONS(self) -> None:  # noqa: N802
-            self.send_response(204)
-            self._send_cors_headers()
-            self.end_headers()
+            try:
+                self.send_response(204)
+                self._send_cors_headers()
+                self.end_headers()
+            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError, OSError):
+                pass
 
         def do_GET(self) -> None:  # noqa: N802
             path = self.path.split("?", 1)[0]
@@ -234,19 +241,40 @@ def create_stdlib_http_handler(controller: GatewayController):
     return AdShieldHTTPHandler
 
 
+class _BoundedPoolHTTPServer(HTTPServer):
+    """HTTPServer backed by a fixed 2-worker ThreadPoolExecutor to prevent OS thread/OpenMP TLS exhaustion."""
+
+    def __init__(self, server_address: Tuple[str, int], RequestHandlerClass: Any) -> None:
+        super().__init__(server_address, RequestHandlerClass)
+        self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="adshield-http")
+
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        try:
+            self.finish_request(request, client_address)
+        except Exception:
+            self.handle_error(request, client_address)
+        finally:
+            self.shutdown_request(request)
+
+    def process_request(self, request: Any, client_address: Any) -> None:
+        self._pool.submit(self.process_request_thread, request, client_address)
+
+    def server_close(self) -> None:
+        super().server_close()
+        self._pool.shutdown(wait=False, cancel_futures=True)
+
+
 def run_stdlib_server(
     host: Optional[str] = None,
     port: Optional[int] = None,
     controller: Optional[GatewayController] = None,
 ) -> None:
-    """Start the multi-threaded HTTP server for local or container execution."""
+    """Start the bounded-pool HTTP server for local or container execution."""
     controller = controller or GatewayController()
     bind_host = host or controller.config.host
     bind_port = port or controller.config.port
     handler_cls = create_stdlib_http_handler(controller)
-    server = ThreadingHTTPServer((bind_host, bind_port), handler_cls)
-    server.daemon_threads = True
-    server.block_on_close = False
+    server = _BoundedPoolHTTPServer((bind_host, bind_port), handler_cls)
     print(f"AdShield Multimodal API running on http://{bind_host}:{bind_port}")
     print(f"  -> POST http://{bind_host}:{bind_port}/predict")
     print(f"  -> GET  http://{bind_host}:{bind_port}/demo")

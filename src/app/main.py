@@ -67,4 +67,4 @@ except ImportError:
 
 
 if __name__ == "__main__":
-    run_stdlib_server()
+    run_stdlib_server(controller=controller)

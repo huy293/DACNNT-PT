@@ -234,9 +234,13 @@ def create_stdlib_http_handler(controller: GatewayController):
     return AdShieldHTTPHandler
 
 
-def run_stdlib_server(host: Optional[str] = None, port: Optional[int] = None) -> None:
+def run_stdlib_server(
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    controller: Optional[GatewayController] = None,
+) -> None:
     """Start the multi-threaded HTTP server for local or container execution."""
-    controller = GatewayController()
+    controller = controller or GatewayController()
     bind_host = host or controller.config.host
     bind_port = port or controller.config.port
     handler_cls = create_stdlib_http_handler(controller)

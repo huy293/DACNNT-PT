@@ -32,6 +32,10 @@ from src.features.clip_extractor.extract_features import (
     _record_diagnostic,
     deobfuscate_ad_text,
 )
+from src.features.clip_extractor.visual_concepts import (
+    EXPANDED_HARMFUL_KEYWORDS,
+    probe_clip_visual_harm_concepts,
+)
 from src.lib.config import AppConfig, load_config
 from src.server.schemas import PredictRequestDTO, PredictResponseDTO
 
@@ -101,6 +105,7 @@ CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
         ),
         "Nội dung/Quảng cáo khiêu dâm, đồi trụy 18+ hoặc dẫn dụ web đen trái thuần phong mỹ tục (Vi phạm Khoản 1 Điều 8 Luật Quảng cáo)",
     ),
+    *EXPANDED_HARMFUL_KEYWORDS,
 )
 
 
@@ -195,9 +200,9 @@ class HarmfulAdInferenceService:
                 if local_img.parent == images_dir and local_img.is_file():
                     return local_img.read_bytes(), url_str
 
-            if is_safe_external_url(url_str) and len((dto.text or "").strip()) < 8:
+            if is_safe_external_url(url_str):
                 host = (parsed_url.hostname or "").lower()
-                if any(cdn in host for cdn in ("gstatic.com", "googleusercontent.com", "fbcdn.net", "imgur.com", "wikimedia.org")):
+                if any(cdn in host for cdn in ("gstatic.com", "googleusercontent.com", "fbcdn.net", "pinimg.com", "imgur.com", "wikimedia.org")):
                     try:
                         req = urllib.request.Request(
                             url_str, headers={"User-Agent": "AdShield-Multimodal-Detector/1.0"}
@@ -250,7 +255,7 @@ class HarmfulAdInferenceService:
         cache_hasher.update(img_hint.encode("utf-8"))
         cache_hasher.update(self.extractor.backend_name.encode("utf-8"))
         if img_bytes:
-            cache_hasher.update(img_bytes[:512])
+            cache_hasher.update(img_bytes)
         cache_key = cache_hasher.hexdigest()
 
         if cache_key in _INFERENCE_LRU_CACHE:
@@ -269,7 +274,7 @@ class HarmfulAdInferenceService:
             )
 
         clean_text = deobfuscate_ad_text(dto.text or "")
-        should_ocr = bool(img_bytes or img_hint) and len(clean_text) < 15
+        should_ocr = bool("/data/images/" in img_hint and len(clean_text) < 15)
         fused_vec = self.extractor.extract_concatenated_vector(
             text=clean_text,
             image_bytes=img_bytes,
@@ -282,6 +287,8 @@ class HarmfulAdInferenceService:
         lower_text = clean_text.lower()
         primary_hits = sum(
             1 for grp in HARMFUL_LEXICON_GROUPS for kw in grp if kw in lower_text
+        ) + sum(
+            1 for _, kws, _ in EXPANDED_HARMFUL_KEYWORDS for kw in kws if kw in lower_text
         )
         hype_hits = sum(1 for kw in HYPE_AMPLIFIER_TERMS if kw in lower_text)
         hint_lower = img_hint.lower()
@@ -315,25 +322,38 @@ class HarmfulAdInferenceService:
         if has_deposit_bonus_pattern:
             primary_hits += 2
 
+        safe_hits = sum(1 for grp in SAFE_LEXICON_GROUPS for kw in grp if kw in lower_text)
+        visual_probe = {"is_visual_harm": False, "visual_category": "safe_commercial_ad", "visual_prob": 0.0, "visual_reason": ""}
+        if img_bytes and safe_hits == 0 and (len(clean_text) < 12 or "/hm_" not in hint_lower):
+            visual_probe = probe_clip_visual_harm_concepts(self.extractor, img_bytes, img_hint)
+
         if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):
             harmful_prob = round(0.25 * raw_prob + 0.75 * min(0.98, 0.84 + 0.03 * (primary_hits + hype_hits)), 4)
         elif primary_hits == 1 or visual_harm_hits >= 1:
             harmful_prob = round(0.30 * raw_prob + 0.70 * 0.78, 4)
         else:
-            safe_hits = sum(
-                1 for grp in SAFE_LEXICON_GROUPS for kw in grp if kw in lower_text
-            )
             if safe_hits >= 1 or any(
                 s in lower_text for s in ("exploratory data analysis", "confusion matrix", "upvotes", "kaggle")
             ):
                 harmful_prob = round(0.45 * raw_prob + 0.55 * 0.08, 4)
+            elif len(clean_text) < 3 and img_bytes and not visual_probe.get("is_visual_harm"):
+                harmful_prob = round(0.30 * raw_prob + 0.70 * (1.0 - float(visual_probe.get("safe_prob", 0.85))), 4)
             else:
                 harmful_prob = round(raw_prob, 4)
 
+        if visual_probe.get("is_visual_harm"):
+            harmful_prob = round(max(harmful_prob, float(visual_probe.get("visual_prob", 0.0))), 4)
+
         is_harmful = harmful_prob >= self.config.harmful_threshold
-        # Confidence represents certainty in the predicted class (or harmful score in [0, 1])
         confidence = round(harmful_prob if is_harmful else (1.0 - harmful_prob), 4)
         category, reasons = self._infer_category_and_reasons(dto.text, img_hint, is_harmful)
+        if is_harmful and visual_probe.get("is_visual_harm"):
+            if category in ("safe_commercial_ad", "harmful_ad_general"):
+                category = str(visual_probe.get("visual_category") or "harmful_ad_general")
+            v_reason = str(visual_probe.get("visual_reason") or "")
+            if v_reason and v_reason not in reasons:
+                reasons.insert(0, v_reason)
+                reasons = [r for r in reasons if "vượt ngưỡng phân loại độc hại của mô hình" not in r] or [v_reason]
         elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
 
         response_dto = PredictResponseDTO(

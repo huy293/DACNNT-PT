@@ -178,6 +178,61 @@ class TestPredictAPIIntegration(unittest.TestCase):
         self.assertEqual(set(rec.keys()), expected_fields)
         self.assertTrue(rec["timestamp"].endswith("Z"))
 
+    def test_predict_expanded_5_categories_and_image_only_probing(self) -> None:
+        """Verify 5 new Harmful Categories and Image-Only (text='') CLIP Zero-Shot + OpenCV Probing."""
+        import base64
+        import cv2
+        import numpy as np
+
+        cases = [
+            ("Shop bán súng đạn, dao kiếm katana, bóng cười khí N2O giá sỉ", "illegal_contraband_weapons"),
+            ("Nhận làm bằng giả đại học, làm bằng lái xe không cần thi phôi thật 100%", "forgery_and_deepfake_scam"),
+            ("Phần mềm gián điệp đọc trộm tin nhắn Zalo theo dõi ngoại tình, bán data khách hàng", "cybercrime_spyware_leak"),
+            ("Video máu me kinh dị chặt đầu bạo lực đẫm máu", "graphic_violence_selfharm"),
+            ("Thỉnh bùa yêu, bùa ngải kumanthong gọi người yêu quay về 100%", "superstition_occult_scam"),
+        ]
+        for txt, expected_cat in cases:
+            req = urllib.request.Request(
+                f"{self.base_url}/predict",
+                data=json.dumps({"text": txt, "image_url": ""}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertIs(data["is_harmful"], True)
+                self.assertEqual(data["category"], expected_cat)
+
+        skin_img = np.full((224, 224, 3), (130, 160, 215), dtype=np.uint8)
+        _, buf_skin = cv2.imencode(".jpg", skin_img)
+        b64_skin = "data:image/jpeg;base64," + base64.b64encode(buf_skin.tobytes()).decode("ascii")
+        req_skin = urllib.request.Request(
+            f"{self.base_url}/predict",
+            data=json.dumps({"text": "", "image_url": b64_skin}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req_skin, timeout=10) as resp:
+            data_skin = json.loads(resp.read().decode("utf-8"))
+            self.assertIs(data_skin["is_harmful"], True)
+            self.assertEqual(data_skin["category"], "adult_nsfw_scam")
+
+        safe_img = np.zeros((224, 224, 3), dtype=np.uint8)
+        safe_img[:112, :] = (230, 180, 90)
+        safe_img[112:, :] = (80, 170, 70)
+        _, buf_safe = cv2.imencode(".jpg", safe_img)
+        b64_safe = "data:image/jpeg;base64," + base64.b64encode(buf_safe.tobytes()).decode("ascii")
+        req_safe = urllib.request.Request(
+            f"{self.base_url}/predict",
+            data=json.dumps({"text": "", "image_url": b64_safe}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req_safe, timeout=10) as resp:
+            data_safe = json.loads(resp.read().decode("utf-8"))
+            self.assertIs(data_safe["is_harmful"], False)
+            self.assertEqual(data_safe["category"], "safe_commercial_ad")
+
 
 if __name__ == "__main__":
     unittest.main()

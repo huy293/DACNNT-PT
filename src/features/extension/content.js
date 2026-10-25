@@ -18,6 +18,7 @@
     "cá cược", "cá độ", "nổ hũ", "tài xỉu", "casino", "xoilac", "cakhia", "8xbet",
     "fb88", "w88", "m88", "kubet", "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "fun88",
     "phim sex", "sex jav", "javhd", "jav hd", "vlxx", "xvideos", "xnxx", "pornhub", "khiêu dâm", "phim 18+",
+    "mua pod", "pod chill", "tinh dầu vape", "bóng cười", "súng bắn bi", "dao bấm", "làm bằng giả", "đọc trộm tin nhắn", "bùa yêu", "bùa ngải",
   ];
 
   function detectPageGamblingSignals() {
@@ -152,7 +153,7 @@
     });
 
     const ctaKeywords =
-      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|jackpot88|we88|king88|longfu88|dafabet|me88|vn88|phim sex|sex jav|javhd|jav hd|không che|vlxx|xvideos|xnxx|pornhub|khiêu dâm|clip nóng|phim 18+".split("|");
+      "casino|casino games|live casino|sòng bài|baccarat|roulette|game bài|top nhà cái|cược|cá cược|cá độ|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|ggbet|betting sites|deposit bonus|nhà cái uy tín|tặng 88k|nổ hũ|tài xỉu|play now|chơi ngay|cược ngay|thưởng nạp|nạp lần đầu|thưởng chào mừng|tiền thưởng gửi tiền|vòng quay miễn phí|vòng quay|free spins|1xbet|aw8|jp88|jackpot88|we88|king88|longfu88|dafabet|me88|vn88|phim sex|sex jav|javhd|jav hd|không che|vlxx|xvideos|xnxx|pornhub|khiêu dâm|clip nóng|phim 18+|mua pod|pod chill|tinh dầu vape|bóng cười|cỏ mỹ|súng bắn bi|dao bấm|kiếm nhật|làm bằng giả|làm bằng đại học|làm cccd giả|đọc trộm tin nhắn|theo dõi ngoại tình|bùa yêu|thỉnh bùa|bùa ngải|kumanthong|máu me kinh dị".split("|");
     root.querySelectorAll("a, button, span, li, div").forEach((btnEl) => {
       if (isAlreadyProtected(btnEl)) return;
       const txt = (btnEl.innerText || btnEl.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -173,7 +174,7 @@
       if (!container || isAlreadyProtected(container)) return;
       const containerText = (container.innerText || container.textContent || "").replace(/\s+/g, " ").trim();
       const hasText = containerText.length >= 4 || Boolean(container.querySelector("p, span, h1, h2, h3, h4, h5, h6, figcaption, a, button, div")) || extractAdjacentSiblingText(imgEl).length > 0;
-      if ((hasText && (w >= 44 || w === 0)) || isBannerLikeImage(imgEl)) candidateSet.add(container);
+      if ((hasText && (w >= 44 || w === 0)) || (w >= 96 && h >= 96) || isBannerLikeImage(imgEl)) candidateSet.add(container);
     });
 
     const list = Array.from(candidateSet).filter((el) => el.isConnected && !isAlreadyProtected(el));

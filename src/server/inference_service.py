@@ -76,7 +76,7 @@ CATEGORY_LABELS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
         (
             "nổ hũ", "casino", "cá độ", "tài xỉu", "cá cược", "cược ngay", "sòng bài",
             "nhà cái", "top nhà cái", "kèo nhà cái", "tỷ lệ kèo", "soi kèo", "rút tiền về ví",
-            "tặng 88k", "cờ bạc", "lô đề", "xóc đĩa", "8xbet", "fb88", "w88", "m88", "kubet",
+            "tặng 88k", "cờ bạc", "đánh bạc", "lô đề", "xóc đĩa", "okvip", "mb66", "sv66", "78win", "f168", "8xbet", "fb88", "w88", "m88", "kubet",
             "hi88", "jun88", "new88", "789bet", "f8bet", "shbet", "go88", "sunwin", "rikvip",
             "188bet", "fun88", "bk8", "ggbet", "deposit bonus", "first deposit", "welcome bonus",
             "betting sites", "esports betting", "bet on", "free bet", "sportsbook", "bookmaker",
@@ -367,7 +367,7 @@ class HarmfulAdInferenceService:
 
         # Skip remote HTTP image download when text/URL already proves harmful or is an official news/police report
         is_remote_http_img = raw_hint.startswith(("http://", "https://")) and "/data/images/" not in hint_lower
-        if is_remote_http_img and (primary_hits >= 2 or visual_harm_hits >= 1 or is_news_or_police_report):
+        if is_remote_http_img and ((primary_hits >= 2 and not is_news_or_police_report) or (is_news_or_police_report and raw_text_hits == 0)):
             img_bytes, img_hint = None, raw_hint
         else:
             img_bytes, img_hint = self._resolve_image_bytes(dto)
@@ -407,7 +407,7 @@ class HarmfulAdInferenceService:
             raw_prob = predict_proba_with_weights(fused_vec, self.model_artifact)
 
             visual_probe = {"is_visual_harm": False, "visual_category": "safe_commercial_ad", "visual_prob": 0.0, "visual_reason": ""}
-            if img_bytes and not is_news_or_police_report and safe_hits == 0 and visual_harm_hits == 0 and (len(clean_text) < 12 or "/hm_" not in hint_lower):
+            if img_bytes and safe_hits == 0 and (len(clean_text) < 12 or "/hm_" not in hint_lower):
                 visual_probe = probe_clip_visual_harm_concepts(self.extractor, img_bytes, img_hint)
 
         if primary_hits >= 2 or (primary_hits >= 1 and (hype_hits >= 1 or visual_harm_hits >= 1)):
@@ -441,14 +441,16 @@ class HarmfulAdInferenceService:
                 reasons = [r for r in reasons if "vượt ngưỡng phân loại độc hại của mô hình" not in r] or [v_reason]
 
         is_image_harmful = bool(
-            not is_news_or_police_report
-            and (
-                visual_probe.get("is_visual_harm")
-                or visual_harm_hits >= 1
-                or "/data/images/" in hint_lower
-                or has_bookmaker_pattern
-                or has_deposit_bonus_pattern
-                or (primary_hits >= 2 and hype_hits >= 1)
+            visual_probe.get("is_visual_harm")
+            or (
+                not is_news_or_police_report
+                and (
+                    visual_harm_hits >= 1
+                    or "/data/images/" in hint_lower
+                    or has_bookmaker_pattern
+                    or has_deposit_bonus_pattern
+                    or (primary_hits >= 2 and hype_hits >= 1)
+                )
             )
         )
         is_text_harmful = bool(primary_hits >= 1)

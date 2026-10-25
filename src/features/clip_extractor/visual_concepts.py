@@ -45,8 +45,8 @@ VISUAL_CONCEPT_PROMPTS: Tuple[Tuple[str, str, str], ...] = (
     ),
     (
         "gambling_scam",
-        "a promotional banner of online casino slot machine jackpot, roulette betting table, sportsbook vip bonus",
-        "Phân tích thị giác CLIP Vision (Zero-Shot) phát hiện giao diện sòng bạc, nổ hũ hoặc banner cá cược (không cần văn bản)",
+        "poker chips, playing cards on green casino table, slot machine 888 jackpot, roulette, sports betting app screen",
+        "Phân tích thị giác CLIP Vision (Zero-Shot) phát hiện giao diện sòng bạc, phỉnh bài poker, nổ hũ hoặc banner cá cược (không cần văn bản)",
     ),
     (
         "safe_commercial_ad",
@@ -216,7 +216,7 @@ def probe_clip_visual_harm_concepts(
         import torch  # type: ignore
         from PIL import Image  # type: ignore
 
-        cache_key = "clip_concept_text_embeds_v2"
+        cache_key = "clip_concept_text_embeds_v3"
         if cache_key not in _VISUAL_CONCEPT_CACHE:
             prompts = [p[1] for p in VISUAL_CONCEPT_PROMPTS]
             with torch.no_grad():
@@ -281,7 +281,7 @@ def probe_clip_visual_harm_concepts(
                 visual_prob=round(min(0.95, max(0.68, weapon_p)), 4),
                 visual_reason=f"{VISUAL_CONCEPT_PROMPTS[4][2]} (CLIP Weapon/Drug={weapon_p:.2f})",
             )
-        elif casino_p >= 0.30 and casino_p > safe_p * 0.65 and not image_hint.startswith("data/images/hm_"):
+        elif casino_p >= 0.22 and casino_p > safe_p * 0.45 and not image_hint.startswith("data/images/hm_"):
             verdict.update(
                 is_visual_harm=True,
                 visual_category="gambling_scam",

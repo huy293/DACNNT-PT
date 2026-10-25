@@ -14,7 +14,7 @@
   const EYE_OFF_SVG = '<svg class="adshield-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
   const INSTANT_HARM_RULES = [
     ["adult_nsfw_scam", /phim\s*sex|phimsex|clip\s*sex|clipsex|s\.e\.x|sex\s*jav|jav\s*hd|javhd|jav\s*sub|vlxx|xvideos|xnxx|pornhub|xhamster|spankbang|redtube|youporn|missav|avhd|eporner|sexmoiz|doocliphot|cliphot|avjb|sifangds|anh-bia-phim|con-re-chich|chịch|hiếp\s*dâm|loạn\s*luân|thuốc\s*mê|lầu\s*xanh|lauxanh|thiendia|rphang|viet69|heovl|xlecx|javmost|javtiful|supjav|njav|avgle|brazzers|onlyfans|fansly|chaturbate|stripchat|livejasmin|cam4|bongacams|rule34|nhentai|hanime|hitomi|sexfull|khiêu\s*dâm|gái\s*gọi|sugar\s*baby|phim\s*18\+|phim\s*xxx|phim\s*cấp\s*3|phim\s*heo|không\s*che|stepson\s*fucks|stepmother|uncensored|hentai/i],
-    ["gambling_scam", /8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|sunwin|go88|rikvip|nổ\s*hũ|tài\s*xỉu|nhà\s*cái\s*uy\s*tín|tỷ\s*lệ\s*kèo/i],
+    ["gambling_scam", /okvip|mb66|sv66|mu88|78win|f168|8xbet|fb88|w88|m88|kubet|hi88|jun88|new88|789bet|f8bet|shbet|fun88|188bet|bk8|sunwin|go88|rikvip|nổ\s*hũ|tài\s*xỉu|nhà\s*cái\s*uy\s*tín|tỷ\s*lệ\s*kèo/i],
     ["financial_scam", /vay\s*nóng|tín\s*dụng\s*đen|chỉ\s*cần\s*cccd|chỉ\s*cần\s*căn\s*cước|bao\s*nợ\s*xấu|giải\s*ngân\s*5\s*phút/i],
     ["medical_misinformation", /loramen|thần\s*dược|chữa\s*khỏi\s*dứt\s*điểm|thay\s*thế\s*hoàn\s*toàn\s*thuốc\s*chữa\s*bệnh|tăng\s*cường\s*khả\s*năng\s*sinh\s*lý/i],
     ["illegal_contraband_weapons", /mua\s*pod|pod\s*chill|tinh\s*dầu\s*vape|bóng\s*cười|khí\s*n2o|cỏ\s*mỹ|súng\s*bắn\s*bi|súng\s*đạn|dao\s*bấm|dao\s*kiếm|katana/i],
@@ -271,7 +271,7 @@
 
   function findCardTextTargets(hostContainer) {
     if (!hostContainer || !hostContainer.querySelectorAll) return [];
-    const all = Array.from(hostContainer.querySelectorAll("a, h1, h2, h3, h4, p, span, div")).filter((el) => !el.closest(".adshield-warning-overlay, .adshield-safe-pill") && !el.querySelector("img, video, canvas, [data-ad-media-body]") && (el.textContent || "").trim().length >= 3);
+    const all = Array.from(hostContainer.querySelectorAll("a, h1, h2, h3, h4, p, span, div")).filter((el) => !el.closest(".adshield-warning-overlay, .adshield-safe-pill") && !el.querySelector("img, video, canvas, [data-ad-media-body]") && (el.textContent || "").trim().length >= 8);
     return all.filter((el) => !all.some((other) => other !== el && other.contains(el)));
   }
 
@@ -393,9 +393,7 @@
     const imgHint = !rawUrl.startsWith("data:") && !/fbcdn\.net|gstatic\.com|googleusercontent\.com/i.test(rawUrl) ? rawUrl.split("?")[0] : "";
     const combined = `${adData.text || ""} ${imgHint}`;
     if (isNewsOrPoliceReport(combined)) {
-      if (/cá\s*cược|cá\s*độ|cờ\s*bạc|nhà\s*cái|tín\s*dụng\s*đen|vay\s*nóng|khiêu\s*dâm|web\s*đen|bùa\s*ngải/i.test(adData.text || "")) {
-        return { is_harmful: true, confidence: 0.88, category: "gambling_scam", harm_modality: "text_only", reasons: [WARNING_BUTTON_TEXT] };
-      }
+      if (/cá\s*cược|cá\s*độ|cờ\s*bạc|đánh\s*bạc|nhà\s*cái|tín\s*dụng\s*đen|vay\s*nóng|khiêu\s*dâm|web\s*đen|bùa\s*ngải/i.test(adData.text || "")) return null;
       return { is_harmful: false, confidence: 0.94, category: "safe_commercial_ad", harm_modality: "none", reasons: [] };
     }
     for (let i = 0; i < INSTANT_HARM_RULES.length; i += 1) {

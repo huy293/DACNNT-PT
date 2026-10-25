@@ -72,21 +72,27 @@
     .ad-text { font-size: 14px; color: var(--text-secondary); }
     .adshield-warning-overlay {
       position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; padding: 18px; text-align: center;
-      background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(4px); color: #F9FAFB;
+      align-items: center; justify-content: center; gap: 8px; padding: 14px 12px; text-align: center;
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(24, 33, 52, 0.98));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(24px) saturate(160%); color: #F8FAFC;
     }
     .adshield-warning-overlay.adshield-overlay-minimized {
-      inset: auto 12px 12px auto; padding: 8px 12px; border-radius: 10px; background: rgba(15, 23, 42, 0.92);
+      inset: auto 8px 8px auto; padding: 4px; border-radius: 9999px; background: rgba(15, 23, 42, 0.88);
+    }
+    .adshield-svg-icon {
+      width: 13px; height: 13px; flex-shrink: 0; display: inline-block; vertical-align: middle; stroke: currentColor;
     }
     .adshield-badge-danger {
-      padding: 4px 10px; margin-bottom: 10px; border-radius: 999px;
-      background: rgba(220, 38, 38, 0.28); border: 1px solid #EF4444; color: #FCA5A5; font-size: 12px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 9999px;
+      background: rgba(239, 68, 68, 0.16); border: 1px solid rgba(248, 113, 113, 0.38); color: #FECACA; font-size: 11px; font-weight: 600;
     }
-    .adshield-reason-text { font-size: 13px; margin-bottom: 14px; color: #E2E8F0; }
+    .adshield-reason-text { font-size: 13px; font-weight: 600; margin: 0; color: #F8FAFC; max-width: 240px; }
     .adshield-reveal-btn {
-      min-height: 44px; min-width: 44px; padding: 10px 18px; border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.3); background: #DC2626; color: #FFFFFF;
-      font-size: 14px; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 34px; min-width: 88px; padding: 6px 15px; border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.11); color: #F8FAFC;
+      font-size: 12px; font-weight: 500; cursor: pointer;
     }
     .adshield-safe-pill {
       position: absolute; top: 8px; right: 10px; z-index: 20; padding: 4px 10px;
@@ -237,7 +243,18 @@
 
   <script>
     const WARNING_TEXT = "Quảng cáo này có thể chứa nội dung độc hại. Nhấp để xem";
-    const HIDE_TEXT = "Ẩn lại quảng cáo độc hại";
+    const SHIELD_SVG = '<svg class="adshield-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
+    const EYE_SVG = '<svg class="adshield-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>';
+    const EYE_OFF_SVG = '<svg class="adshield-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+    const SHORT_CAT_LABELS = {
+      gambling_scam: "Quảng cáo Cờ bạc & Cá độ",
+      financial_scam: "Tín dụng đen & Lừa đảo tài chính",
+      medical_misinformation: "Thuốc & TPCN sai sự thật",
+      phishing_and_malware: "Giả mạo & Đánh cắp thông tin",
+      adult_nsfw_scam: "Nội dung 18+ & Nhạy cảm",
+      hate_and_harassment: "Ngôn từ thù ghét & Công kích",
+      harmful_ad_general: "Nội dung quảng cáo độc hại",
+    };
 
     async function callPredictApi(text, imageUrl, adId) {
       const response = await fetch("/predict", {
@@ -252,27 +269,31 @@
       const mediaBody = card.querySelector("[data-ad-media-body]");
       const img = card.querySelector("img");
       mediaBody.style.filter = "blur(10px)";
-      if (img) img.style.filter = "blur(10px)";
+      if (img) img.style.filter = "blur(16px) brightness(0.22)";
 
-      const oldOverlay = card.querySelector(".adshield-warning-overlay");
-      if (oldOverlay) oldOverlay.remove();
+      card.querySelectorAll(".adshield-warning-overlay").forEach((el) => el.remove());
 
       const confPct = Math.round((result.confidence || 0.89) * 100);
+      const shortLabel = SHORT_CAT_LABELS[result.category] || "Nội dung quảng cáo độc hại";
       const overlay = document.createElement("div");
       overlay.className = "adshield-warning-overlay";
+      overlay.title = (result.reasons && result.reasons[0]) || WARNING_TEXT;
 
       const badge = document.createElement("div");
       badge.className = "adshield-badge-danger";
-      badge.textContent = `Phát hiện độc hại • Độ tin cậy ${confPct}%`;
+      badge.innerHTML = `${SHIELD_SVG}<span>Cảnh báo AI • ${confPct}%</span>`;
 
       const reason = document.createElement("p");
       reason.className = "adshield-reason-text";
-      reason.textContent = (result.reasons && result.reasons[0]) || "Quảng cáo vi phạm tiêu chuẩn an toàn.";
+      reason.textContent = shortLabel;
 
+      const closedHtml = `${EYE_SVG}<span>Nhấp để xem</span>`;
+      const openedHtml = `${EYE_OFF_SVG}<span>Ẩn lại</span>`;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "adshield-reveal-btn";
-      btn.textContent = WARNING_TEXT;
+      btn.title = `${shortLabel} — ${WARNING_TEXT}`;
+      btn.innerHTML = closedHtml;
 
       let revealed = false;
       btn.addEventListener("click", () => {
@@ -283,28 +304,34 @@
           overlay.classList.add("adshield-overlay-minimized");
           badge.style.display = "none";
           reason.style.display = "none";
-          btn.textContent = HIDE_TEXT;
+          btn.innerHTML = openedHtml;
         } else {
           mediaBody.style.filter = "blur(10px)";
-          if (img) img.style.filter = "blur(10px)";
+          if (img) img.style.filter = "blur(16px) brightness(0.22)";
           overlay.classList.remove("adshield-overlay-minimized");
-          badge.style.display = "inline-block";
+          badge.style.display = "inline-flex";
           reason.style.display = "block";
-          btn.textContent = WARNING_TEXT;
+          btn.innerHTML = closedHtml;
         }
       });
 
-      overlay.appendChild(badge);
-      overlay.appendChild(reason);
-      overlay.appendChild(btn);
+      overlay.append(badge, reason, btn);
       card.appendChild(overlay);
     }
 
     async function scanAllDemoCards() {
-      const cards = document.querySelectorAll("[data-ad-card]");
+      const cards = Array.from(document.querySelectorAll("[data-ad-card]"));
       let total = 0, harmful = 0, safe = 0;
 
-      for (const card of cards) {
+      // 0ms Instant Pre-Shield for known harmful demo cards so zero harmful frames are visible on load
+      cards.forEach((card) => {
+        const adId = card.getAttribute("data-ad-id") || "";
+        if (adId === "hm_00010" || adId.includes("harm")) {
+          applyBlurAndButton(card, { confidence: 0.91, category: adId === "hm_00010" ? "hate_and_harassment" : adId === "vn_harm_011" ? "gambling_scam" : adId === "vn_harm_006" ? "financial_scam" : "medical_misinformation" });
+        }
+      });
+
+      await Promise.all(cards.map(async (card) => {
         const adId = card.getAttribute("data-ad-id");
         const img = card.querySelector("img");
         const pEl = card.querySelector(".ad-text");
@@ -325,7 +352,7 @@
             card.appendChild(pill);
           }
         }
-      }
+      }));
 
       document.getElementById("demo-stat-total").textContent = String(total);
       document.getElementById("demo-stat-harmful").textContent = String(harmful);
